@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "95360811476",
+    "project_id": "luga-bb851",
+    "storage_bucket": "luga-bb851.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:95360811476:android:7f52ab633552423a985641",
+        "android_client_info": {
+          "package_name": "silverbackgarden.example.luga"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "95360811476-dg8r8f5iirtmcpvh5k1cietnrf29k764.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "silverbackgarden.example.luga",
+            "certificate_hash": "a52acfac0046237e64d39bbb7a6e2d4dbfd5f900"
+          }
+        },
+        {
+          "client_id": "95360811476-ledk73lor3qnsai28v4trq6p091cnklj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjAvlSL9-D9B3lf_syH1sfZTWrtdSPD3Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "95360811476-ledk73lor3qnsai28v4trq6p091cnklj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
