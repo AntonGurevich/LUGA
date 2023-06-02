@@ -32,6 +32,18 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var screenshotButton: Button
     private lateinit var videoButton: Button
 
+    private lateinit var stepsProgBar: CircularProgressBar
+    private lateinit var eTokenProgBar: CircularProgressBar
+    private lateinit var neTokenProgBar: CircularProgressBar
+    private lateinit var tSteps: TextView
+    private lateinit var tEToken: TextView
+    private lateinit var tNEToken: TextView
+
+
+
+
+
+
     private lateinit var sensorManager: SensorManager
     private var stepCountSensor: Sensor? = null
 
@@ -43,7 +55,27 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_central)
 
+        stepsProgBar = findViewById<CircularProgressBar>(R.id.circularProgressBarSteps)
+        eTokenProgBar = findViewById<CircularProgressBar>(R.id.circularProgressBarExTokens)
+        neTokenProgBar = findViewById<CircularProgressBar>(R.id.circularProgressBarNonExTokens)
+        tSteps = findViewById<TextView>(R.id.tvStepsBal)
+        tEToken = findViewById<TextView>(R.id.tvExTokensBal)
+        tNEToken = findViewById<TextView>(R.id.tvNonExTokensBal)
 
+        stepsProgBar.setOnClickListener{
+            //TODO: Detailed Steps View
+            Toast.makeText(this, "Detailed Step Data capability is not supported in MVP yet", Toast.LENGTH_SHORT).show()
+        }
+
+        eTokenProgBar.setOnClickListener{
+            //TODO: Detailed Tokens View
+            Toast.makeText(this, "Detailed Exchangeable Tokens Data capability is not supported in MVP yet", Toast.LENGTH_SHORT).show()
+        }
+
+        neTokenProgBar.setOnClickListener{
+            //TODO: Detailed Tokens View 2
+            Toast.makeText(this, "Detailed non-Exchangeable Tokens Data capability is not supported in MVP yet", Toast.LENGTH_SHORT).show()
+        }
 
         var todaySteps: Int = 0
         var todayStepTokens: Int = 0
@@ -228,12 +260,6 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         Toast.makeText(this, "Step count: $stepCount", Toast.LENGTH_SHORT).show()
 
         // PROGRESS BAR UPDATE
-        val stepsProgBar = findViewById<CircularProgressBar>(R.id.circularProgressBarSteps)
-        val eTokenProgBar = findViewById<CircularProgressBar>(R.id.circularProgressBarExTokens)
-        val neTokenProgBar = findViewById<CircularProgressBar>(R.id.circularProgressBarNonExTokens)
-        val tSteps = findViewById<TextView>(R.id.tvStepsBal)
-        val tEToken = findViewById<TextView>(R.id.tvExTokensBal)
-        val tNEToken = findViewById<TextView>(R.id.tvNonExTokensBal)
 
 
         val daylyTokenExchengeLimit: Int = 30
