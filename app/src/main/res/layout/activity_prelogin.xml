@@ -24,6 +24,13 @@
             android:drawableLeft="@drawable/ic_email50"
             android:text="Login with Email" />
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="10dp"
+            android:background="@color/luga_blue" />
+
         <Button
             android:id="@+id/btnLoginGoogle"
             android:layout_width="match_parent"
@@ -45,11 +52,32 @@
             android:drawableLeft="@drawable/ic_facebook50"
             android:text="Login with Facebook" />
 
-        <Button
-            android:id="@+id/btnRegister"
+        <LinearLayout
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Register new user" />
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:layout_marginTop="30dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <Button
+                android:id="@+id/btnRegister"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Register new user" />
+
+
+
+            <ImageView
+                android:id="@+id/imageView3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:srcCompat="@drawable/logo2png" />
+        </LinearLayout>
 
     </LinearLayout>
 
