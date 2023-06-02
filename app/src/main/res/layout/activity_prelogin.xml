@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:layout_marginTop="70dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <Button
+            android:id="@+id/btnLoginEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:drawableLeft="@drawable/ic_email50"
+            android:text="Login with Email" />
+
+        <Button
+            android:id="@+id/btnLoginGoogle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:drawableLeft="@drawable/ic_google50"
+            android:text="Login with Google" />
+
+        <Button
+            android:id="@+id/btnLoginMicrosoft"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableLeft="@drawable/ic_microsoft50"
+            android:text="Login with Microsoft" />
+
+        <Button
+            android:id="@+id/btnLoginFacebook"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:drawableLeft="@drawable/ic_facebook50"
+            android:text="Login with Facebook" />
+
+        <Button
+            android:id="@+id/btnRegister"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Register new user" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

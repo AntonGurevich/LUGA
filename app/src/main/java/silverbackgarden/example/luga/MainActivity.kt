@@ -16,7 +16,7 @@ class MainActivity : AppCompatActivity() {
         // Add a delay to simulate a splash screen if desired
         GlobalScope.launch {
             delay(2000) // Delay in milliseconds
-            startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+            startActivity(Intent(this@MainActivity, PreLoginActivity::class.java))
             finish()
         }
     }
