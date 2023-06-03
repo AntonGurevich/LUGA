@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- activity_step_data.xml -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Steps Progress Indicator -->
+
+    <!-- Bar Chart -->
+    <com.mikhaellopez.circularprogressbar.CircularProgressBar
+        android:id="@+id/circularProgressBarSteps"
+        android:layout_width="200dp"
+        android:layout_height="200dp"
+        tools:progress="75"
+        tools:progressMax="100"
+        tools:progressbar_background_color="@color/progress_background_color"
+        tools:progressbar_color="@color/progress_color"
+        tools:progressbar_stroke_width="10dp" />
+
+    <com.github.mikephil.charting.charts.BarChart
+        android:id="@+id/barChart"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/circularProgressBarSteps"
+        android:padding="16dp" />
+
+</RelativeLayout>

@@ -46,6 +46,10 @@
         <activity android:name=".PreLoginActivity"
             android:label="LUGA"
             android:theme="@style/Theme.LUGA" />
+        <activity
+            android:name=".StepDataViewActivity"
+            android:label="Step Data View">
+        </activity>
 
     </application>
 

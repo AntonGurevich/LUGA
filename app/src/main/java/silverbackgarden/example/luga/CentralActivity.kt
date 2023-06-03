@@ -63,8 +63,8 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         tNEToken = findViewById<TextView>(R.id.tvNonExTokensBal)
 
         stepsProgBar.setOnClickListener{
-            //TODO: Detailed Steps View
-            Toast.makeText(this, "Detailed Step Data capability is not supported in MVP yet", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, StepDataViewActivity::class.java)
+            startActivity(intent)
         }
 
         eTokenProgBar.setOnClickListener{
