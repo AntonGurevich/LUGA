@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="silverbackgarden.example.luga">
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.BODY_SENSORS" />
@@ -27,24 +26,24 @@
         </activity>
         <activity
             android:name=".LoginActivity"
-            android:label="LUGA Login"
+            android:label="Acteamity Login"
             android:theme="@style/Theme.LUGA" />
         <activity
             android:name=".RegisterActivity"
-            android:label="LUGA Register"
+            android:label="Acteamity Register"
             android:theme="@style/Theme.LUGA" />
         <activity
             android:name=".ProfileActivity"
-            android:label="LUGA Profile"
+            android:label="Acteamity Profile"
             android:theme="@style/Theme.LUGA" />
         <activity android:name=".ProfileEditActivity"
-            android:label="LUGA Edit Profile"
+            android:label="Acteamity Edit Profile"
             android:theme="@style/Theme.LUGA" />
         <activity android:name=".CentralActivity"
-            android:label="LUGA"
+            android:label="Acteamity"
             android:theme="@style/Theme.LUGA" />
         <activity android:name=".PreLoginActivity"
-            android:label="LUGA"
+            android:label="Acteamity"
             android:theme="@style/Theme.LUGA" />
         <activity
             android:name=".StepDataViewActivity"
