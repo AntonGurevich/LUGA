@@ -53,7 +53,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_central)
+        setContentView(R.layout.activity_central_test)
 
         stepsProgBar = findViewById<CircularProgressBar>(R.id.circularProgressBarSteps)
         eTokenProgBar = findViewById<CircularProgressBar>(R.id.circularProgressBarExTokens)
