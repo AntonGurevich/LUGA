@@ -1,6 +1,5 @@
 package silverbackgarden.example.luga
-import android.content.Intent
-import android.content.SharedPreferences
+
 import android.os.Bundle
 import android.util.Patterns
 import android.view.View
@@ -9,7 +8,12 @@ import android.widget.EditText
 import android.widget.Switch
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import silverbackgarden.example.luga.R
+import kotlinx.coroutines.*
+import java.sql.Connection
+import java.sql.DriverManager
+import java.sql.SQLException
+import java.util.Properties
+import android.content.SharedPreferences
 
 class RegisterActivity : AppCompatActivity() {
 
@@ -26,6 +30,11 @@ class RegisterActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
 
+        bindViews()
+        setupListeners()
+    }
+
+    private fun bindViews() {
         emailEditText = findViewById(R.id.register_email_edittext)
         passwordEditText = findViewById(R.id.register_password_edittext)
         codeSwitch = findViewById(R.id.code_switch)
@@ -33,73 +42,90 @@ class RegisterActivity : AppCompatActivity() {
         registerButton = findViewById(R.id.register_button)
         nameEditText = findViewById(R.id.register_name_edittext)
         surnameEditText = findViewById(R.id.register_surname_edittext)
-
         sharedPreferences = getSharedPreferences("MyPrefs", MODE_PRIVATE)
+    }
 
+    private fun setupListeners() {
         codeSwitch.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                employerCodeEditText.visibility = View.VISIBLE
-            } else {
-                employerCodeEditText.visibility = View.GONE
-            }
+            employerCodeEditText.visibility = if (isChecked) View.VISIBLE else View.GONE
         }
 
         registerButton.setOnClickListener {
-            val email = emailEditText.text.toString()
-            val password = passwordEditText.text.toString()
-            val hasEmployerCode = codeSwitch.isChecked
-            val employerCode = employerCodeEditText.text.toString()
-            val name = nameEditText.text.toString()
-            val surname = surnameEditText.text.toString()
+            register()
+        }
+    }
 
-            if (isEmailValid(email) && isPasswordValid(password)) {
-                if (hasEmployerCode && employerCode.isBlank()) {
-                    Toast.makeText(this, "Please enter the Employer code", Toast.LENGTH_SHORT).show()
-                } else {
-                    if (hasEmployerCode && employerCode.isNotEmpty()) {
-                        // Save employer name in SharedPreferences
-                        val editor = sharedPreferences.edit()
-                        editor.putString("employer_name", "LUGA")
-                        editor.apply()
-                    }
+    private fun register() {
+        val email = emailEditText.text.toString()
+        val password = passwordEditText.text.toString()
+        val hasEmployerCode = codeSwitch.isChecked
+        val employerCode = employerCodeEditText.text.toString()
+        val name = nameEditText.text.toString()
+        val surname = surnameEditText.text.toString()
 
-                    // Save email and password in SharedPreferences
-                    val editor = sharedPreferences.edit()
-                    editor.putString("email", email)
-                    editor.putString("password", password)
-                    editor.putString("name", name)
-                    editor.putString("surname", surname)
-                    editor.apply()
+        if (isEmailValid(email) && isPasswordValid(password)) {
+            if (hasEmployerCode && employerCode.isBlank()) {
+                Toast.makeText(this, "Please enter the Employer code", Toast.LENGTH_SHORT).show()
+                return
+            }
 
-                    // Proceed with registration
-                    registerUser(email, password)
+            // Save preferences in a single commit
+            sharedPreferences.edit().apply {
+                if (hasEmployerCode) {
+                    putString("employer_name", "LUGA")
                 }
-            } else {
-                Toast.makeText(this, "Invalid email or password", Toast.LENGTH_SHORT).show()
+                putString("email", email)
+                putString("password", password)
+                putString("name", name)
+                putString("surname", surname)
+                apply()
+            }
+
+            registerUser(email, password)
+            insertPerson(email, password, name, surname)
+        } else {
+            Toast.makeText(this, "Invalid email or password", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun isEmailValid(email: String) = email.isNotEmpty() && Patterns.EMAIL_ADDRESS.matcher(email).matches()
+
+    private fun isPasswordValid(password: String) = password.isNotEmpty()
+
+    private fun registerUser(email: String, password: String) {
+        // Implement user registration logic here
+    }
+
+    private fun insertPerson(email: String, password: String, name: String, surname: String) = CoroutineScope(Dispatchers.IO).launch {
+        try {
+            getConnection()?.use { connection ->
+                val statement = connection.prepareStatement("INSERT INTO Persons2 (Email, Password, Name, Surname) VALUES (?, ?, ?, ?)").apply {
+                    setString(1, email)
+                    setString(2, password)
+                    setString(3, name)
+                    setString(4, surname)
+                    executeUpdate()
+                }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@RegisterActivity, "User registered successfully", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } catch (e: SQLException) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@RegisterActivity, "Database error: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    private fun isEmailValid(email: String): Boolean {
-        return if (email.isEmpty()) {
-            false
-        } else {
-            Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    private fun getConnection(): Connection? {
+        val connectionProps = Properties().apply {
+            put("user", "acuser02")
+            put("password", "!suka-password-19-48")
+        }
+        return try {
+            DriverManager.getConnection("jdbc:mysql://20.0.164.108:3306/acdbdev", connectionProps)
+        } catch (e: SQLException) {
+            null
         }
     }
-
-    private fun isPasswordValid(password: String): Boolean {
-        return password.isNotEmpty()
-    }
-
-    private fun registerUser(email: String, password: String) {
-        // TODO: Implement user registration logic
-        // You can add your logic here to register the user with the provided email and password
-
-        // If registration is successful, navigate to the profile screen
-        val intent = Intent(this, CentralActivity::class.java)
-        startActivity(intent)
-        finish()
-    }
 }
-

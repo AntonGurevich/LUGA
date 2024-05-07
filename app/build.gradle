@@ -4,8 +4,6 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
-
-
 android {
     compileSdkVersion 33
 
@@ -16,9 +14,7 @@ android {
         versionCode 1
         versionName "1.0"
         resValue("string","google_client_id","91441432411-e747bkd55e91a57bfr79l7r8dv7ilggm.apps.googleusercontent.com")
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-
         namespace 'silverbackgarden.example.luga'
     }
 
@@ -50,7 +46,7 @@ dependencies {
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     implementation 'com.mikhaellopez:circularprogressbar:3.1.0'
-    implementation 'com.google.android.gms:play-services-auth:20.5.0' // Add this line
+    implementation 'com.google.android.gms:play-services-auth:20.5.0'
     implementation platform('com.google.firebase:firebase-bom:32.0.0')
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
@@ -58,6 +54,19 @@ dependencies {
     implementation 'com.google.firebase:firebase-analytics-ktx'
     implementation 'com.google.android.gms:play-services-fitness:21.1.0'
     implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+    implementation 'mysql:mysql-connector-java:8.0.30'
+    implementation(platform("com.google.firebase:firebase-bom:31.3.0"))
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0'
 
+    // Add exclusion here
+    configurations {
+        all {
+            exclude group: 'com.google.protobuf', module: 'protobuf-java' // Excludes protobuf-java globally
+        }
+    }
 }
-
