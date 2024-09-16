@@ -31,6 +31,11 @@ class RegisterActivity : AppCompatActivity() {
     private lateinit var nameEditText: EditText
     private lateinit var surnameEditText: EditText
 
+    private val sharedPref by lazy {
+        (applicationContext as? Acteamity)?.sharedPref
+    }
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
@@ -74,7 +79,12 @@ class RegisterActivity : AppCompatActivity() {
                 Toast.makeText(this, "Please enter the Employer code", Toast.LENGTH_SHORT).show()
                 return
             }
-
+            // Save user in Shared Preferences
+            sharedPref?.edit()?.putString("email", email)?.apply()
+            sharedPref?.edit()?.putString("password", password)?.apply()
+            sharedPref?.edit()?.putString("name", name)?.apply()
+            sharedPref?.edit()?.putString("surname", surname)?.apply()
+            sharedPref?.edit()?.putString("employerCode", employerCode)?.apply()
             // Register user via API
             registerUserApi(email, password, name, surname)
         } else {

@@ -88,11 +88,12 @@
 
 
         <Button
-            android:id="@+id/logout_button"
+            android:id="@+id/delete_account_button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_below="@id/close_button"
-            android:text="Log Out" />
+            android:backgroundTint="@color/purple_700"
+            android:text="Delete Account" />
 
     </LinearLayout>
 
