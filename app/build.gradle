@@ -41,31 +41,31 @@ android {
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.10.1'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.9.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation 'com.mikhaellopez:circularprogressbar:3.1.0'
-    implementation 'com.google.android.gms:play-services-auth:20.5.0'
-    implementation platform('com.google.firebase:firebase-bom:32.0.0')
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    implementation 'com.google.firebase:firebase-analytics-ktx'
-    implementation 'com.google.android.gms:play-services-fitness:21.1.0'
-    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
-    implementation 'mysql:mysql-connector-java:8.0.30'
-    implementation(platform("com.google.firebase:firebase-bom:31.3.0"))
-    implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
-    implementation("com.google.firebase:firebase-storage-ktx")
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.0'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0'
-    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
-    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
-    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0"
-    implementation 'androidx.sqlite:sqlite:2.2.0'
+    implementation 'androidx.core:core-ktx:1.10.1' // Add Core KTX by AndroidX
+    implementation 'androidx.appcompat:appcompat:1.6.1' // Add AppCompat
+    implementation 'com.google.android.material:material:1.9.0' // Add Material Design
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4' // Add Constraint Layout
+    implementation 'com.mikhaellopez:circularprogressbar:3.1.0'     // Add Circular Progress Bar
+    implementation 'com.google.android.gms:play-services-auth:20.5.0' // Add Google Auth
+    implementation platform('com.google.firebase:firebase-bom:32.0.0') // Add Firebase BOM
+    testImplementation 'junit:junit:4.13.2' // Add JUnit
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5' // Add JUnit
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1' // Add Espresso
+    implementation 'com.google.firebase:firebase-analytics-ktx' // Add Firebase Analytics
+    implementation 'com.google.android.gms:play-services-fitness:21.1.0' // Add Google Fit
+    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0' // Add MPAndroidChart
+    implementation 'mysql:mysql-connector-java:8.0.30' // Add MySQL Connector
+    implementation(platform("com.google.firebase:firebase-bom:31.3.0")) // Add Firebase BOM
+    implementation("com.google.firebase:firebase-analytics-ktx") // Add Firebase Analytics
+    implementation("com.google.firebase:firebase-auth-ktx") // Add Firebase Auth
+    implementation("com.google.firebase:firebase-firestore-ktx") // Add Firebase Firestore
+    implementation("com.google.firebase:firebase-storage-ktx") // Add Firebase Storage
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4' // Add Coroutines
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0' // Add Coroutines
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0' // Add Retrofit
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0' // Add Gson Converter
+    implementation 'androidx.sqlite:sqlite:2.2.0' // Add SQLite
+    implementation "androidx.work:work-runtime-ktx:2.7.1" // Add WorkManager
 
     // Add exclusion here
     configurations {
