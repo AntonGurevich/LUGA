@@ -49,15 +49,15 @@ class LoginActivity : AppCompatActivity() {
             deleteButton.visibility = View.GONE
         }
 
-        textView = findViewById(R.id.textView)
-        textView2 = findViewById(R.id.textView2)
+        //textView = findViewById(R.id.textView)
+        //textView2 = findViewById(R.id.textView2)
 
 
         val savedEmail = sharedPref?.getString("email", "no value")
         val savedPassword = sharedPref?.getString("password", "no value")
 
-        textView.setText(savedEmail)
-        textView2.setText(savedPassword)
+        //textView.setText(savedEmail)
+        //textView2.setText(savedPassword)
 
         loginButton.setOnClickListener {
             val email = emailEditText.text.toString()

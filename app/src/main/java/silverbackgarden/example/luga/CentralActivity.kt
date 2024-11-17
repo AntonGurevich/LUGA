@@ -1,41 +1,45 @@
 package silverbackgarden.example.luga
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Bundle
-import android.widget.Button
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Bundle
 import android.util.Log
+import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.github.mikephil.charting.charts.BarChart
+import com.github.mikephil.charting.components.XAxis.XAxisPosition
+import com.github.mikephil.charting.data.BarData
+import com.github.mikephil.charting.data.BarDataSet
+import com.github.mikephil.charting.data.BarEntry
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.fitness.Fitness
 import com.google.android.gms.fitness.FitnessOptions
 import com.google.android.gms.fitness.data.DataType
 import com.google.android.gms.fitness.data.Field
 import com.google.android.gms.fitness.request.DataReadRequest
-import com.google.android.gms.fitness.Fitness
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.tasks.OnFailureListener
-import com.google.android.gms.tasks.OnSuccessListener
 import com.mikhaellopez.circularprogressbar.CircularProgressBar
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 
 class CentralActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var profileButton: Button
     private lateinit var screenshotButton: Button
     private lateinit var videoButton: Button
+    private lateinit var activateStepCountWorkerButton: Button
 
     private lateinit var stepsProgBar: CircularProgressBar
     private lateinit var eTokenProgBar: CircularProgressBar
@@ -55,7 +59,16 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_central_test)
+    // Initialize the button
+        activateStepCountWorkerButton = findViewById(R.id.activateStepCountWorkerButton)
 
+        // Set OnClickListener to the button
+        activateStepCountWorkerButton.setOnClickListener {
+            val stepCountWorkRequest = PeriodicWorkRequestBuilder<StepCountWorker>(2, TimeUnit.HOURS)
+                .build()
+            WorkManager.getInstance(this).enqueue(stepCountWorkRequest)
+            Toast.makeText(this, "Step Count Worker activated", Toast.LENGTH_SHORT).show()
+        }
         stepsProgBar = findViewById(R.id.circularProgressBarSteps)
         eTokenProgBar = findViewById(R.id.circularProgressBarExTokens)
         neTokenProgBar = findViewById(R.id.circularProgressBarNonExTokens)
@@ -63,19 +76,18 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         tEToken = findViewById(R.id.tvExTokensBal)
         tNEToken = findViewById(R.id.tvNonExTokensBal)
 
-        stepsProgBar.setOnClickListener{
+        stepsProgBar.setOnClickListener {
             val intent = Intent(this, StepDataViewActivity::class.java)
             startActivity(intent)
         }
 
-        eTokenProgBar.setOnClickListener{
+        eTokenProgBar.setOnClickListener {
             Toast.makeText(this, "Detailed Exchangeable Tokens Data capability is not supported in MVP yet", Toast.LENGTH_SHORT).show()
         }
 
-        neTokenProgBar.setOnClickListener{
+        neTokenProgBar.setOnClickListener {
             Toast.makeText(this, "Detailed non-Exchangeable Tokens Data capability is not supported in MVP yet", Toast.LENGTH_SHORT).show()
         }
-
         // Get the system's sensor service
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
@@ -214,25 +226,30 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
     private fun updateUIWithStepCount(stepCount: Int) {
         Toast.makeText(this, "Step count: $stepCount", Toast.LENGTH_SHORT).show()
 
-        val daylyTokenExchengeLimit: Int = 30
-        var daylyTokenNonExchengeLimit = 0
-        if (daylyTokenExchengeLimit < 60){
-            daylyTokenNonExchengeLimit = 60 - daylyTokenExchengeLimit
+        val monthlyTokenExchengeLimit: Int = 30
+        var monthlyTokenNonExchengeLimit = 0
+        if (monthlyTokenExchengeLimit < 60){
+            monthlyTokenNonExchengeLimit = 60 - monthlyTokenExchengeLimit
         } else {
-            daylyTokenNonExchengeLimit = 0
+            monthlyTokenNonExchengeLimit = 0
         }
-        val todaySteps = stepCount % 1000
-        var todayStepTokens = stepCount / 1000
-        val todayTokensExchengeble = minOf(todayStepTokens, daylyTokenExchengeLimit)
+        val todaySteps = stepCount % 10000
+        var todayStepTokens = stepCount / 10000
+        val todayTokensExchengeble = minOf(todayStepTokens, monthlyTokenExchengeLimit)
         todayStepTokens = maxOf(0, todayStepTokens - todayTokensExchengeble)
-        val todayTokensNotExchangeble = minOf(todayStepTokens, daylyTokenNonExchengeLimit)
+        val todayTokensNotExchangeble = minOf(todayStepTokens, monthlyTokenNonExchengeLimit)
+
+        stepsProgBar.progressMax = 10000f
+        eTokenProgBar.progressMax = monthlyTokenExchengeLimit.toFloat()
+        neTokenProgBar.progressMax = monthlyTokenNonExchengeLimit.toFloat()
+        
 
         stepsProgBar.setProgressWithAnimation(todaySteps.toFloat(), 1000)
         eTokenProgBar.setProgressWithAnimation(todayTokensExchengeble.toFloat(), 1000)
         neTokenProgBar.setProgressWithAnimation(todayTokensNotExchangeble.toFloat(), 1000)
-        tSteps.text = "$todaySteps/1000"
-        tEToken.text = "$todayTokensExchengeble/$daylyTokenExchengeLimit"
-        tNEToken.text = "$todayTokensNotExchangeble/$daylyTokenNonExchengeLimit"
+        tSteps.text = "$todaySteps/10000"
+        tEToken.text = "$todayTokensExchengeble/$monthlyTokenExchengeLimit"
+        tNEToken.text = "$todayTokensNotExchangeble/$monthlyTokenNonExchengeLimit"
     }
 
     override fun onRequestPermissionsResult(
@@ -262,3 +279,4 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 }
+

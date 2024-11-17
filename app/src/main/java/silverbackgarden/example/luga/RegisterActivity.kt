@@ -1,24 +1,26 @@
 package silverbackgarden.example.luga
 
+import android.Manifest
 import android.content.SharedPreferences
+import android.icu.text.SimpleDateFormat
+import android.icu.util.Calendar
 import android.os.Bundle
 import android.util.Patterns
 import android.view.View
-import android.widget.Button
-import android.widget.EditText
-import android.widget.Switch
-import android.widget.Toast
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import kotlinx.coroutines.*
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Body
-import retrofit2.http.POST
-import retrofit2.HttpException
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.google.android.gms.auth.api.signin.*
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.tasks.Task
+import com.google.firebase.auth.FirebaseAuth
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
-import android.util.Log
-
+import kotlinx.coroutines.*
+import retrofit2.*
+import retrofit2.converter.gson.GsonConverterFactory
+import java.util.*
 
 class RegisterActivity : AppCompatActivity() {
 
@@ -30,18 +32,28 @@ class RegisterActivity : AppCompatActivity() {
     private lateinit var sharedPreferences: SharedPreferences
     private lateinit var nameEditText: EditText
     private lateinit var surnameEditText: EditText
+    private lateinit var googleSignInClient: GoogleSignInClient
 
-    private val sharedPref by lazy {
-        (applicationContext as? Acteamity)?.sharedPref
-    }
-
+    private val sharedPref by lazy { (applicationContext as? Acteamity)?.sharedPref }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
 
+        googleSignInClient = GoogleSignIn.getClient(this, GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build())
+
+        GoogleSignIn.getLastSignedInAccount(this)?.let { readStepCount(it) } ?: signIn()
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACTIVITY_RECOGNITION), REQUEST_ACTIVITY_RECOGNITION_PERMISSION)
+        }
+
         bindViews()
         setupListeners()
+    }
+
+    private fun signIn() {
+        startActivityForResult(googleSignInClient.signInIntent, RC_SIGN_IN)
     }
 
     private fun bindViews() {
@@ -60,11 +72,8 @@ class RegisterActivity : AppCompatActivity() {
             employerCodeEditText.visibility = if (isChecked) View.VISIBLE else View.GONE
         }
 
-        registerButton.setOnClickListener {
-            register()
-        }
+        registerButton.setOnClickListener { register() }
     }
-
 
     private fun register() {
         val email = emailEditText.text.toString()
@@ -73,20 +82,27 @@ class RegisterActivity : AppCompatActivity() {
         val surname = surnameEditText.text.toString()
         val hasEmployerCode = codeSwitch.isChecked
         val employerCode = employerCodeEditText.text.toString()
+        val registrationDate = getCurrentDate()
 
         if (isEmailValid(email) && isPasswordValid(password)) {
             if (hasEmployerCode && employerCode.isBlank()) {
                 Toast.makeText(this, "Please enter the Employer code", Toast.LENGTH_SHORT).show()
                 return
             }
-            // Save user in Shared Preferences
-            sharedPref?.edit()?.putString("email", email)?.apply()
-            sharedPref?.edit()?.putString("password", password)?.apply()
-            sharedPref?.edit()?.putString("name", name)?.apply()
-            sharedPref?.edit()?.putString("surname", surname)?.apply()
-            sharedPref?.edit()?.putString("employerCode", employerCode)?.apply()
-            // Register user via API
-            registerUserApi(email, password, name, surname)
+            sharedPref?.edit()?.apply {
+                putString("email", email)
+                putString("password", password)
+                putString("name", name)
+                putString("surname", surname)
+                putString("employerCode", employerCode)
+                putString("registrationDate", registrationDate)
+                apply()
+            }
+            registerUserApi(email, password, name, surname, registrationDate)
+            // Transition to CentralActivity
+            val intent = Intent(this, CentralActivity::class.java)
+            startActivity(intent)
+            finish()
         } else {
             Toast.makeText(this, "Invalid email or password", Toast.LENGTH_SHORT).show()
         }
@@ -96,74 +112,74 @@ class RegisterActivity : AppCompatActivity() {
 
     private fun isPasswordValid(password: String) = password.isNotEmpty()
 
+    data class ErrorResponse(@SerializedName("error") val error: String)
 
-    // Define the error response data class
-    data class ErrorResponse(
-        @SerializedName("error") val error: String
-    )
-
-    private fun registerUserApi(email: String, password: String, name: String, surname: String) {
-
-        val user_id = 1000.toString()
-        val employer_id = "AC"
-        val email = "AG@AC.com"
-        val password = 12345.toString()
-        val connection_code = 1
+    private fun registerUserApi(email: String, password: String, name: String, surname: String, registrationDate: String) {
         val retrofit = Retrofit.Builder()
-            .baseUrl("http://20.0.164.108:3000/")
+            .baseUrl("http://20.0.164.108:3000")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
         val api = retrofit.create(UserApi::class.java)
-        val user = User(user_id, employer_id,  email, password, connection_code)
+        val user = User(email, 1, registrationDate)
 
         CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val response = api.registerUser(user)
-                withContext(Dispatchers.Main) {
-                    if (response.isSuccessful) {
-                        Toast.makeText(this@RegisterActivity, "User registered successfully", Toast.LENGTH_SHORT).show()
-                    } else {
-                        // Log error response body
-                        val errorBody = response.errorBody()?.string()
-                        Log.e("RegisterActivity", "Error response body: $errorBody")
-
-                        // Parse the error response
-                        val errorResponse = errorBody?.let {
-                            Gson().fromJson(it, ErrorResponse::class.java)
+            repeat(10) {
+                try {
+                    val response = api.registerUser(user)
+                    withContext(Dispatchers.Main) {
+                        if (response.isSuccessful) {
+                            Toast.makeText(this@RegisterActivity, "User registered successfully", Toast.LENGTH_SHORT).show()
+                            return@withContext
+                        } else {
+                            val errorMessage = Gson().fromJson(response.errorBody()?.string(), ErrorResponse::class.java)?.error ?: "Registration failed"
+                            Toast.makeText(this@RegisterActivity, errorMessage, Toast.LENGTH_SHORT).show()
                         }
-                        val errorMessage = errorResponse?.error ?: "Registration failed"
-                        Toast.makeText(this@RegisterActivity, errorMessage, Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        val errorMessage = (e as? HttpException)?.response()?.errorBody()?.string()?.let { Gson().fromJson(it, ErrorResponse::class.java)?.error } ?: e.message ?: "Unknown error"
+                        Toast.makeText(this@RegisterActivity, "Error: $errorMessage", Toast.LENGTH_LONG).show()
                     }
                 }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    // Log the exception
-                    Log.e("RegisterActivity", "Exception: ${e.message}", e)
-
-                    val errorMessage = when (e) {
-                        is HttpException -> {
-                            val errorBody = e.response()?.errorBody()?.string()
-                            Log.e("RegisterActivity", "HTTP exception error body: $errorBody")
-
-                            val errorResponse = errorBody?.let {
-                                Gson().fromJson(it, ErrorResponse::class.java)
-                            }
-                            errorResponse?.error ?: e.message()
-                        }
-                        else -> e.message ?: "Unknown error"
-                    }
-                    Toast.makeText(this@RegisterActivity, "Error: $errorMessage", Toast.LENGTH_LONG).show()
-                }
+                delay(1000)
             }
         }
     }
 
-    interface UserApi {
-        @POST("/api/register")
-        suspend fun registerUser(@Body user: User): retrofit2.Response<Void>
+    private fun getCurrentDate(): String {
+        return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Calendar.getInstance().time)
     }
 
-    data class User(val user_id: String, val employer_id: String, val email: String, val password: String, val connection_code: Int)
-}
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == RC_SIGN_IN) {
+            handleSignInResult(GoogleSignIn.getSignedInAccountFromIntent(data))
+        }
+    }
 
+    private fun handleSignInResult(completedTask: Task<GoogleSignInAccount>) {
+        try {
+            readStepCount(completedTask.getResult(ApiException::class.java))
+        } catch (e: ApiException) {
+            Log.w(TAG, "signInResult:failed code=" + e.statusCode)
+        }
+    }
+
+    private fun readStepCount(account: GoogleSignInAccount) {
+        // Make the API call to read the step count
+    }
+
+    companion object {
+        private const val RC_SIGN_IN = 9001
+        private const val TAG = "RegisterActivity"
+        private const val REQUEST_ACTIVITY_RECOGNITION_PERMISSION = 1002
+    }
+
+    interface UserApi {
+        @POST("/api/register")
+        suspend fun registerUser(@Body user: User): Response<Void>
+    }
+
+    data class User(val email: String, val connection_code: Int, val registration_date: String)
+}
