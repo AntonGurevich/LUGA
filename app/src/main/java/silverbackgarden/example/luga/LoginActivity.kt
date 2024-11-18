@@ -10,6 +10,10 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import silverbackgarden.example.luga.R
 
 class LoginActivity : AppCompatActivity() {
@@ -22,6 +26,8 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var textView: TextView
 
     private lateinit var textView2: TextView
+
+    private lateinit var googleSignInClient: GoogleSignInClient
 
 
     private lateinit var deleteButton: Button
@@ -65,10 +71,10 @@ class LoginActivity : AppCompatActivity() {
 
             if (isEmailValid(email) && isPasswordValid(password)) {
                 if (isUserRegistered(email, password)) {
-                    // Perform login validation and authentication
-                    // You can use Firebase Authentication or your preferred authentication method
+                    googleSignInClient = GoogleSignIn.getClient(this, GoogleSignInOptions.Builder(
+                        GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build())
+                    GoogleSignIn.getLastSignedInAccount(this)?.let { readStepCount(it) } ?: signIn()
 
-                    // If login is successful, navigate to the profile screen
                     val intent = Intent(this, CentralActivity::class.java)
                     startActivity(intent)
                     finish()
@@ -130,6 +136,20 @@ class LoginActivity : AppCompatActivity() {
         val savedEmail = sharedPref?.getString("email", null)
         val savedPassword = sharedPref?.getString("password", null)
         return !savedEmail.isNullOrEmpty() && !savedPassword.isNullOrEmpty()
+    }
+
+    private fun readStepCount(account: GoogleSignInAccount) {
+        // Make the API call to read the step count
+    }
+
+    private fun signIn() {
+        startActivityForResult(googleSignInClient.signInIntent, RC_SIGN_IN)
+    }
+
+    companion object {
+        const val RC_SIGN_IN = 9001
+        private const val TAG = "LoginActivity"
+        private const val REQUEST_ACTIVITY_RECOGNITION_PERMISSION = 1002
     }
 }
 

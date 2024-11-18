@@ -1,6 +1,7 @@
 package silverbackgarden.example.luga
 
 import android.Manifest
+import android.content.Intent
 import android.content.SharedPreferences
 import android.icu.text.SimpleDateFormat
 import android.icu.util.Calendar
@@ -21,6 +22,10 @@ import kotlinx.coroutines.*
 import retrofit2.*
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.*
+import android.content.pm.PackageManager
+import android.util.Log
+import retrofit2.http.POST
+import retrofit2.http.Body
 
 class RegisterActivity : AppCompatActivity() {
 
@@ -41,7 +46,6 @@ class RegisterActivity : AppCompatActivity() {
         setContentView(R.layout.activity_register)
 
         googleSignInClient = GoogleSignIn.getClient(this, GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build())
-
         GoogleSignIn.getLastSignedInAccount(this)?.let { readStepCount(it) } ?: signIn()
 
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
@@ -171,7 +175,7 @@ class RegisterActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val RC_SIGN_IN = 9001
+        const val RC_SIGN_IN = 9001
         private const val TAG = "RegisterActivity"
         private const val REQUEST_ACTIVITY_RECOGNITION_PERMISSION = 1002
     }

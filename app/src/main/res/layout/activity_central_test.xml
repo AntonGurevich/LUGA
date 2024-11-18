@@ -81,12 +81,14 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
+                    android:textColor="@color/luga_blue"
                     android:text="Exchangible\nTokens" />
                 <TextView
                     android:id="@+id/tvExTokensBal"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
+                    android:textColor="@color/luga_blue"
                     android:text="10/30" />
             </LinearLayout>
 
@@ -133,6 +135,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
+                    android:textColor="@color/luga_blue"
                     android:text="Non-Exchangible\nTokens" />
 
                 <TextView
@@ -140,6 +143,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
+                    android:textColor="@color/luga_blue"
                     android:text="5/30" />
             </LinearLayout>
 
@@ -198,11 +202,13 @@
                     app:layout_constraintVertical_bias="0.506">
 
 
+
                     <TextView
                         android:id="@+id/tvSteps"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
+                        android:textColor="@color/luga_blue"
                         android:text="Steps to next token" />
 
                     <TextView
@@ -210,6 +216,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
+                        android:textColor="@color/luga_blue"
                         android:text="740/1000" />
                 </LinearLayout>
 
