@@ -32,6 +32,7 @@ class RegisterActivity : AppCompatActivity() {
 
         bindViews()
         setupListeners()
+        getConnection()
     }
 
     private fun bindViews() {
@@ -81,7 +82,9 @@ class RegisterActivity : AppCompatActivity() {
                 apply()
             }
 
-            registerUser(email, password)
+            //registerUser(email, password)
+
+            Toast.makeText(this, "Pre-insert", Toast.LENGTH_SHORT).show()
             insertPerson(email, password, name, surname)
         } else {
             Toast.makeText(this, "Invalid email or password", Toast.LENGTH_SHORT).show()
@@ -97,13 +100,22 @@ class RegisterActivity : AppCompatActivity() {
     }
 
     private fun insertPerson(email: String, password: String, name: String, surname: String) = CoroutineScope(Dispatchers.IO).launch {
+        runOnUiThread{
+            Toast.makeText(this@RegisterActivity, "In-Insert", Toast.LENGTH_SHORT).show()
+        }
         try {
             getConnection()?.use { connection ->
-                val statement = connection.prepareStatement("INSERT INTO Persons2 (Email, Password, Name, Surname) VALUES (?, ?, ?, ?)").apply {
-                    setString(1, email)
-                    setString(2, password)
-                    setString(3, name)
-                    setString(4, surname)
+                val statement = connection.prepareStatement(
+                    "INSERT INTO Persons2 " +
+                            "(user_id, employer_id, effective_from, effective_to, email, password, connection_code) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?)").apply {
+                    setString(1, "1")
+                    setString(2, "1")
+                    setString(3, "1")
+                    setString(4, "1")
+                    setString(5, "1")
+                    setString(6, "1")
+                    setString(7, "1")
                     executeUpdate()
                 }
                 withContext(Dispatchers.Main) {
@@ -118,6 +130,9 @@ class RegisterActivity : AppCompatActivity() {
     }
 
     private fun getConnection(): Connection? {
+        runOnUiThread{
+            Toast.makeText(this@RegisterActivity, "In-CONNECTION", Toast.LENGTH_SHORT).show()
+        }
         val connectionProps = Properties().apply {
             put("user", "acuser02")
             put("password", "!suka-password-19-48")
