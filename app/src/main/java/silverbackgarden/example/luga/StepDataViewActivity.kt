@@ -1,7 +1,7 @@
 package silverbackgarden.example.luga
 
-import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.github.mikephil.charting.charts.BarChart
@@ -9,16 +9,23 @@ import com.github.mikephil.charting.components.XAxis.XAxisPosition
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
-import com.github.mikephil.charting.data.Entry
-import com.github.mikephil.charting.highlight.Highlight
-import com.github.mikephil.charting.listener.OnChartValueSelectedListener
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.fitness.Fitness
+import com.google.android.gms.fitness.FitnessOptions
+import com.google.android.gms.fitness.data.DataType
+import com.google.android.gms.fitness.data.Field
+import com.google.android.gms.fitness.request.DataReadRequest
 import com.mikhaellopez.circularprogressbar.CircularProgressBar
+import java.util.*
+import java.util.concurrent.TimeUnit
 
 class StepDataViewActivity : AppCompatActivity() {
 
     private lateinit var stepsProgBar: CircularProgressBar
     private lateinit var barChartY: BarChart
     private lateinit var barChartM: BarChart
+
+    private lateinit var fitnessOptions: FitnessOptions
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,104 +35,83 @@ class StepDataViewActivity : AppCompatActivity() {
         barChartY = findViewById(R.id.barChartYear)
         barChartM = findViewById(R.id.barChartMonth)
 
-        stepsProgBar.setOnClickListener {
-            // Handle progress bar click if needed
-            Toast.makeText(this, "Progress bar clicked", Toast.LENGTH_SHORT).show()
+        fitnessOptions = FitnessOptions.builder()
+            .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
+            .build()
+        val account = GoogleSignIn.getAccountForExtension(this, fitnessOptions)
+
+        if (GoogleSignIn.getLastSignedInAccount(this) != null && GoogleSignIn.hasPermissions(account, fitnessOptions)) {
+            fetchAndDisplayStepData()
+        } else {
+            Toast.makeText(this, "Google Fit permissions are required", Toast.LENGTH_SHORT).show()
         }
-
-        // Populate the bar chart with mock data for the last 12 months
-        populateBarChartY()
-        populateBarChartM()
-
-        // Set a listener for bar chart value selection
-        barChartY.setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
-            override fun onValueSelected(e: Entry?, h: Highlight?) {
-                // Handle bar chart value selection, launch detailed view for the selected month
-                val selectedMonth = e?.x?.toInt() ?: 0
-                //launchDetailedView(selectedMonth)
-                //TODO: Detailed steps View
-            }
-
-            override fun onNothingSelected() {
-                // Handle when no value is selected
-            }
-        })
     }
 
-    private fun populateBarChartY() {
-        val entries = mutableListOf<BarEntry>()
+    private fun fetchAndDisplayStepData() {
+        val cal = Calendar.getInstance()
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        cal.set(Calendar.HOUR_OF_DAY, 0)
+        cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        val startTime = cal.timeInMillis
+        val endTime = System.currentTimeMillis()
 
-        // Generate mock data for the last 12 months
-        for (month in 0 until 12) {
-            val steps = (200000..450000).random().toFloat() // Replace with actual steps data
-            //TODO: Get real Data
-            entries.add(BarEntry((month+1).toFloat(), steps))
-        }
+        val readRequest = DataReadRequest.Builder()
+            .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
+            .read(DataType.TYPE_STEP_COUNT_DELTA)
+            .build()
 
-        // Create a bar dataset with the entries
-        val dataSet = BarDataSet(entries, "Steps")
-        dataSet.color = resources.getColor(R.color.luga_blue)
+        val account = GoogleSignIn.getAccountForExtension(this, fitnessOptions)
 
-        // Create a bar data object with the dataset
-        val barData = BarData(dataSet)
+        Fitness.getHistoryClient(this, account)
+            .readData(readRequest)
+            .addOnSuccessListener { response ->
+                val dataSet = response.getDataSet(DataType.TYPE_STEP_COUNT_DELTA)
+                val stepsByMonth = IntArray(12)
+                val stepsByDay = IntArray(30)
 
-        // Customize the appearance of the bar chart
-        barChartY.data = barData
-        barChartY.description.isEnabled = false
-        barChartY.legend.isEnabled = false
-        barChartY.xAxis.setDrawGridLines(false)
-        barChartY.xAxis.position = XAxisPosition.BOTTOM
-        barChartY.axisLeft.setDrawGridLines(false)
-        barChartY.axisRight.setDrawGridLines(false)
-        barChartY.axisLeft.setDrawGridLines(false)
-        barChartY.axisLeft.setDrawLabels(false)
-        barChartY.axisLeft.axisMinimum = 0f
-        barChartY.axisRight.axisMinimum = 0f
-        barChartY.animateY(1000)
-        barChartY.xAxis.setLabelCount(entries.size, false)
+                for (dataPoint in dataSet.dataPoints) {
+                    val steps = dataPoint.getValue(Field.FIELD_STEPS).asInt()
+                    val timestamp = dataPoint.getStartTime(TimeUnit.MILLISECONDS)
+                    val calendar = Calendar.getInstance().apply { timeInMillis = timestamp }
+                    val month = calendar.get(Calendar.MONTH)
+                    val day = calendar.get(Calendar.DAY_OF_MONTH) - 1
 
-        // Refresh the chart
-        barChartY.invalidate()
-    }private fun populateBarChartM() {
-        val entries = mutableListOf<BarEntry>()
+                    if (month in 0..11) {
+                        stepsByMonth[month] += steps
+                    }
+                    if (day in 0..29) {
+                        stepsByDay[day] += steps
+                    }
+                }
 
-        // Generate mock data for the last 12 months
-        for (month in 0 until 30) {
-            val steps = (5000..20000).random().toFloat() // Replace with actual steps data
-            //TODO: Get real Data
-            entries.add(BarEntry((month+1).toFloat(), steps))
-        }
+                updateBarChart(barChartY, stepsByMonth)
+                updateBarChart(barChartM, stepsByDay)
+            }
+            .addOnFailureListener { e ->
+                Log.e("StepDataViewActivity", "Failed to read step count", e)
+                Toast.makeText(this, "Failed to read step count: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
 
-        // Create a bar dataset with the entries
+    private fun updateBarChart(barChart: BarChart, stepsData: IntArray) {
+        val entries = stepsData.mapIndexed { index, steps -> BarEntry((index + 1).toFloat(), steps.toFloat()) }
         val dataSet = BarDataSet(entries, "Steps")
         dataSet.color = resources.getColor(R.color.luga_blue)
         dataSet.setDrawValues(false)
 
-        // Create a bar data object with the dataset
         val barData = BarData(dataSet)
-
-        // Customize the appearance of the bar chart
-        barChartM.data = barData
-        barChartM.description.isEnabled = false
-        barChartM.legend.isEnabled = false
-        barChartM.xAxis.setDrawGridLines(false)
-        barChartM.xAxis.position = XAxisPosition.BOTTOM
-        barChartM.axisLeft.setDrawGridLines(false)
-        barChartM.axisRight.setDrawGridLines(false)
-        barChartM.axisLeft.setDrawGridLines(false)
-        barChartM.axisLeft.setDrawLabels(false)
-        barChartM.axisLeft.axisMinimum = 0f
-        barChartM.axisRight.axisMinimum = 0f
-        barChartM.animateY(1000)
-
-        // Refresh the chart
-        barChartY.invalidate()
+        barChart.data = barData
+        barChart.description.isEnabled = false
+        barChart.legend.isEnabled = false
+        barChart.xAxis.setDrawGridLines(false)
+        barChart.xAxis.position = XAxisPosition.BOTTOM
+        barChart.axisLeft.setDrawGridLines(false)
+        barChart.axisRight.setDrawGridLines(false)
+        barChart.axisLeft.setDrawLabels(false)
+        barChart.axisLeft.axisMinimum = 0f
+        barChart.axisRight.axisMinimum = 0f
+        barChart.animateY(1000)
+        barChart.invalidate()
     }
-
-    //private fun launchDetailedView(month: Int) {
-        // Launch the detailed view activity for the selected month
-      //  val intent = Intent(this, StepDataByDayActivity::class.java)
-      //  intent.putExtra("selectedMonth", month)
-      //  startActivity(intent)
-    //}
 }

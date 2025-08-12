@@ -1,12 +1,19 @@
 package silverbackgarden.example.luga
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Patterns
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import silverbackgarden.example.luga.R
 
 class LoginActivity : AppCompatActivity() {
@@ -16,6 +23,19 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var loginButton: Button
     private lateinit var createAccountButton: Button
 
+    private lateinit var textView: TextView
+
+    private lateinit var textView2: TextView
+
+    private lateinit var googleSignInClient: GoogleSignInClient
+
+
+    private lateinit var deleteButton: Button
+
+    private val sharedPref by lazy {
+        (applicationContext as? Acteamity)?.sharedPref
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
@@ -24,6 +44,26 @@ class LoginActivity : AppCompatActivity() {
         passwordEditText = findViewById(R.id.login_password_edittext)
         loginButton = findViewById(R.id.login_button)
         createAccountButton = findViewById(R.id.register_button)
+        deleteButton = findViewById(R.id.delete_button)
+        createAccountButton.visibility = View.GONE
+
+        if (!isUserDataSaved()) {
+            loginButton.visibility = View.GONE
+            emailEditText.visibility = View.GONE
+            passwordEditText.visibility = View.GONE
+            createAccountButton.visibility = View.VISIBLE
+            deleteButton.visibility = View.GONE
+        }
+
+        //textView = findViewById(R.id.textView)
+        //textView2 = findViewById(R.id.textView2)
+
+
+        val savedEmail = sharedPref?.getString("email", "no value")
+        val savedPassword = sharedPref?.getString("password", "no value")
+
+        //textView.setText(savedEmail)
+        //textView2.setText(savedPassword)
 
         loginButton.setOnClickListener {
             val email = emailEditText.text.toString()
@@ -31,10 +71,10 @@ class LoginActivity : AppCompatActivity() {
 
             if (isEmailValid(email) && isPasswordValid(password)) {
                 if (isUserRegistered(email, password)) {
-                    // Perform login validation and authentication
-                    // You can use Firebase Authentication or your preferred authentication method
+                    googleSignInClient = GoogleSignIn.getClient(this, GoogleSignInOptions.Builder(
+                        GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build())
+                    GoogleSignIn.getLastSignedInAccount(this)?.let { readStepCount(it) } ?: signIn()
 
-                    // If login is successful, navigate to the profile screen
                     val intent = Intent(this, CentralActivity::class.java)
                     startActivity(intent)
                     finish()
@@ -49,6 +89,28 @@ class LoginActivity : AppCompatActivity() {
         createAccountButton.setOnClickListener {
             val intent = Intent(this, RegisterActivity::class.java)
             startActivity(intent)
+        }
+
+        deleteButton.setOnClickListener {
+            val builder = AlertDialog.Builder(this)
+            builder.setTitle("Delete Account")
+            builder.setMessage("Are you sure you want to delete your account?")
+
+            builder.setPositiveButton("Yes") { dialog, _ ->
+                val editor = sharedPref?.edit()
+                editor?.remove("email")?.apply()
+                editor?.remove("password")?.apply()
+                val intent = Intent(this, MainActivity::class.java)
+                startActivity(intent)
+                dialog.dismiss()
+            }
+
+            builder.setNegativeButton("No") { dialog, _ ->
+                dialog.dismiss()
+            }
+
+            val dialog: AlertDialog = builder.create()
+            dialog.show()
         }
     }
 
@@ -65,11 +127,29 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun isUserRegistered(email: String, password: String): Boolean {
-        val sharedPreferences = getSharedPreferences("UserPrefs", MODE_PRIVATE)
-        val savedEmail = sharedPreferences.getString("email", null)
-        val savedPassword = sharedPreferences.getString("password", null)
-
+        val savedEmail = sharedPref?.getString("email", "no value")
+        val savedPassword = sharedPref?.getString("password", "no value")
         return email == savedEmail && password == savedPassword
+    }
+
+    private fun isUserDataSaved(): Boolean {
+        val savedEmail = sharedPref?.getString("email", null)
+        val savedPassword = sharedPref?.getString("password", null)
+        return !savedEmail.isNullOrEmpty() && !savedPassword.isNullOrEmpty()
+    }
+
+    private fun readStepCount(account: GoogleSignInAccount) {
+        // Make the API call to read the step count
+    }
+
+    private fun signIn() {
+        startActivityForResult(googleSignInClient.signInIntent, RC_SIGN_IN)
+    }
+
+    companion object {
+        const val RC_SIGN_IN = 9001
+        private const val TAG = "LoginActivity"
+        private const val REQUEST_ACTIVITY_RECOGNITION_PERMISSION = 1002
     }
 }
 

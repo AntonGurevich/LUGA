@@ -17,12 +17,20 @@
         android:gravity="right"
         app:layout_constraintTop_toTopOf="parent">
 
+
         <Button
             android:id="@+id/profileButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginRight="5dp"
             android:text="Profile" />
+
+        <Button
+            android:id="@+id/activateStepCountWorkerButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Activate Step Count Worker"
+            android:layout_marginStart="16dp" />
     </LinearLayout>
 
     <LinearLayout
@@ -73,12 +81,14 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
+                    android:textColor="@color/luga_blue"
                     android:text="Exchangible\nTokens" />
                 <TextView
                     android:id="@+id/tvExTokensBal"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
+                    android:textColor="@color/luga_blue"
                     android:text="10/30" />
             </LinearLayout>
 
@@ -125,6 +135,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:gravity="center"
+                    android:textColor="@color/luga_blue"
                     android:text="Non-Exchangible\nTokens" />
 
                 <TextView
@@ -132,6 +143,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
+                    android:textColor="@color/luga_blue"
                     android:text="5/30" />
             </LinearLayout>
 
@@ -141,30 +153,23 @@
 
     <LinearLayout
         android:id="@+id/activitiesArrea"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginBottom="200dp"
-        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="170dp"
         android:gravity="center"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        android:orientation="vertical"
         app:layout_constraintTop_toBottomOf="@+id/tokenCounterArea">
-
 
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:orientation="horizontal"
             android:background="@color/background_teal"
-            >
+            android:orientation="horizontal">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:layout_marginTop="10dp"
                 android:layout_weight="1">
 
                 <com.mikhaellopez.circularprogressbar.CircularProgressBar
@@ -191,8 +196,11 @@
                     android:orientation="vertical"
                     app:layout_constraintBottom_toBottomOf="@+id/circularProgressBarSteps"
                     app:layout_constraintEnd_toEndOf="@+id/circularProgressBarSteps"
+                    app:layout_constraintHorizontal_bias="0.48"
                     app:layout_constraintStart_toStartOf="@+id/circularProgressBarSteps"
-                    app:layout_constraintTop_toTopOf="@+id/circularProgressBarSteps">
+                    app:layout_constraintTop_toTopOf="@+id/circularProgressBarSteps"
+                    app:layout_constraintVertical_bias="0.506">
+
 
 
                     <TextView
@@ -200,131 +208,20 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        android:text="Steps" />
+                        android:textColor="@color/luga_blue"
+                        android:text="Steps to next token" />
+
                     <TextView
                         android:id="@+id/tvStepsBal"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
+                        android:textColor="@color/luga_blue"
                         android:text="740/1000" />
                 </LinearLayout>
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
-            <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="10dp"
-            android:layout_weight="1">
-
-                <com.mikhaellopez.circularprogressbar.CircularProgressBar
-                    android:id="@+id/circularProgressBarCycle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:cpb_background_progressbar_color="@color/teal_200"
-                    app:cpb_background_progressbar_width="5dp"
-                    app:cpb_progress="4"
-                    app:cpb_progress_direction="to_right"
-                    app:cpb_progress_max="10"
-                    app:cpb_progressbar_color="@color/teal_700"
-                    app:cpb_progressbar_width="10dp"
-                    app:cpb_round_border="false"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:orientation="vertical"
-                app:layout_constraintBottom_toBottomOf="@+id/circularProgressBarCycle"
-                app:layout_constraintEnd_toEndOf="@+id/circularProgressBarCycle"
-                app:layout_constraintStart_toStartOf="@+id/circularProgressBarCycle"
-                app:layout_constraintTop_toTopOf="@+id/circularProgressBarCycle">
-
-
-                <TextView
-                    android:id="@+id/tvCycle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="Cycle km" />
-
-                <TextView
-                    android:id="@+id/tvCycleBal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="4/10" />
-            </LinearLayout>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="10dp"
-            android:layout_weight="1">
-
-                <com.mikhaellopez.circularprogressbar.CircularProgressBar
-                    android:id="@+id/circularProgressBarSwim"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    app:cpb_background_progressbar_color="@color/teal_200"
-                    app:cpb_background_progressbar_width="5dp"
-                    app:cpb_progress_direction="to_right"
-                    app:cpb_progressbar_color="@color/teal_700"
-                    app:cpb_progressbar_width="10dp"
-                    app:cpb_round_border="false"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:orientation="vertical"
-                    app:layout_constraintBottom_toBottomOf="@+id/circularProgressBarSwim"
-                    app:layout_constraintEnd_toEndOf="@+id/circularProgressBarSwim"
-                    app:layout_constraintStart_toStartOf="@+id/circularProgressBarSwim"
-                    app:layout_constraintTop_toTopOf="@+id/circularProgressBarSwim">
-
-
-                    <TextView
-                        android:id="@+id/tvSwim"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:text="Swim" />
-                    <TextView
-                        android:id="@+id/tvSwimBal"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:text="0/100" />
-                </LinearLayout>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@color/background_teal"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:id="@+id/imageView5"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                app:srcCompat="@drawable/original_on_transparent" />
         </LinearLayout>
 
     </LinearLayout>
@@ -340,30 +237,12 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/activitiesArrea">
 
-        <Button
-            android:id="@+id/screenshotButton"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginLeft="10dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginRight="5dp"
-            android:layout_marginBottom="10dp"
+        <ImageView
+            android:id="@+id/imageView5"
+            android:layout_width="wrap_content"
+            android:layout_height="135dp"
+            android:layout_marginTop="30dp"
             android:layout_weight="1"
-            android:text="Provide Screenshot"
-            app:strokeColor="@color/teal_200"
-            app:strokeWidth="10dp" />
-
-        <Button
-            android:id="@+id/videoRecognitionButton"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginLeft="5dp"
-            android:layout_marginTop="10dp"
-            android:layout_marginRight="10dp"
-            android:layout_marginBottom="10dp"
-            android:layout_weight="1"
-            app:strokeColor="@color/teal_200"
-            app:strokeWidth="10dp"
-            android:text="Video Capture" />
+            app:srcCompat="@drawable/original_on_transparent" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

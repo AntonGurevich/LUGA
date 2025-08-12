@@ -9,12 +9,14 @@
 
     <application
         android:allowBackup="true"
+        android:name=".Acteamity"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@drawable/no_text_logo"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.LUGA"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <activity
             android:name=".MainActivity"
