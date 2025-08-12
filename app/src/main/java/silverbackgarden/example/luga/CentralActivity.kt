@@ -18,11 +18,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.github.mikephil.charting.charts.BarChart
-import com.github.mikephil.charting.components.XAxis.XAxisPosition
-import com.github.mikephil.charting.data.BarData
-import com.github.mikephil.charting.data.BarDataSet
-import com.github.mikephil.charting.data.BarEntry
+
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.fitness.Fitness
 import com.google.android.gms.fitness.FitnessOptions
@@ -32,13 +28,13 @@ import com.google.android.gms.fitness.request.DataReadRequest
 import com.mikhaellopez.circularprogressbar.CircularProgressBar
 import java.util.*
 import java.util.concurrent.TimeUnit
-import kotlin.math.roundToInt
+
+import silverbackgarden.example.luga.TokenCalculation
 
 class CentralActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var profileButton: Button
-    private lateinit var screenshotButton: Button
-    private lateinit var videoButton: Button
+
     private lateinit var activateStepCountWorkerButton: Button
 
     private lateinit var stepsProgBar: CircularProgressBar
@@ -50,11 +46,18 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
 
     private lateinit var sensorManager: SensorManager
     private var stepCountSensor: Sensor? = null
+    private var stepDetectorSensor: Sensor? = null
+    private var initialStepCount: Int = -1
+    private var currentStepCount: Int = 0
 
     private lateinit var fitnessOptions: FitnessOptions
 
-    val REQUEST_PERMISSIONS_REQUEST_CODE = 1001
-    private val REQUEST_ACTIVITY_RECOGNITION_PERMISSION = 1002
+    companion object {
+        private const val REQUEST_PERMISSIONS_REQUEST_CODE = 1001
+        private const val REQUEST_ACTIVITY_RECOGNITION_PERMISSION = 1002
+        private const val MONTHLY_TOKEN_EXCHANGE_LIMIT = 30
+        private const val DAILY_STEP_GOAL = 10000
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,11 +96,17 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
 
         // Check if the step counter sensor is available
         stepCountSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        stepDetectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
 
-        if (stepCountSensor == null) {
-            Toast.makeText(this, "Step counter sensor is not available", Toast.LENGTH_SHORT).show()
+        if (stepCountSensor == null && stepDetectorSensor == null) {
+            Toast.makeText(this, "No step sensors available on this device", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(this, "ALL GOOD", Toast.LENGTH_SHORT).show()
+            if (stepCountSensor != null) {
+                Toast.makeText(this, "Step counter sensor available", Toast.LENGTH_SHORT).show()
+            }
+            if (stepDetectorSensor != null) {
+                Toast.makeText(this, "Step detector sensor available", Toast.LENGTH_SHORT).show()
+            }
         }
 
         fitnessOptions = FitnessOptions.builder()
@@ -132,40 +141,35 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         val buttonColor = ContextCompat.getColor(this, R.color.luga_blue)
 
         profileButton = findViewById(R.id.profileButton)
-        //screenshotButton = findViewById(R.id.screenshotButton)
-        //videoButton = findViewById(R.id.videoRecognitionButton)
-
         profileButton.setBackgroundColor(buttonColor)
-//        screenshotButton.setBackgroundColor(buttonColor)
-//        videoButton.setBackgroundColor(buttonColor)
 
         profileButton.setOnClickListener {
             val intent = Intent(this, ProfileActivity::class.java)
             startActivity(intent)
         }
+        
+        // Add a button to reset step counter (for testing)
+        activateStepCountWorkerButton.setOnClickListener {
+            // Reset step counter for new day
+            resetStepCounter()
+            val stepCountWorkRequest = PeriodicWorkRequestBuilder<StepCountWorker>(2, TimeUnit.HOURS)
+                .build()
+            WorkManager.getInstance(this).enqueue(stepCountWorkRequest)
+            Toast.makeText(this, "Step Count Worker activated & counter reset", Toast.LENGTH_SHORT).show()
+        }
 
         val stepCountWorkRequest = PeriodicWorkRequestBuilder<StepCountWorker>(2, TimeUnit.HOURS)
             .build()
         WorkManager.getInstance(this).enqueue(stepCountWorkRequest)
-//        screenshotButton.setOnClickListener {
-//            Toast.makeText(
-//                this,
-//                "Screenshot recognition capability is not yet available",
-//                Toast.LENGTH_SHORT
-//            ).show()
-//        }
-//        videoButton.setOnClickListener {
-//            Toast.makeText(
-//                this,
-//                "Video capture capability is not yet available",
-//                Toast.LENGTH_SHORT
-//            ).show()
-//        }
+
     }
 
     override fun onResume() {
         super.onResume()
         stepCountSensor?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+        stepDetectorSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
     }
@@ -180,12 +184,47 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
-            readStepCount()
+        when (event?.sensor?.type) {
+            Sensor.TYPE_STEP_COUNTER -> {
+                handleStepCounterEvent(event)
+            }
+            Sensor.TYPE_STEP_DETECTOR -> {
+                handleStepDetectorEvent(event)
+            }
+        }
+    }
+    
+    private fun handleStepCounterEvent(event: SensorEvent) {
+        val totalSteps = event.values[0].toInt()
+        
+        if (initialStepCount == -1) {
+            initialStepCount = totalSteps
+        }
+        
+        currentStepCount = totalSteps - initialStepCount
+        updateUIWithStepCount(currentStepCount)
+    }
+    
+    private fun handleStepDetectorEvent(event: SensorEvent) {
+        // Step detector gives 1.0 for each step
+        if (event.values[0] == 1.0f) {
+            currentStepCount++
+            updateUIWithStepCount(currentStepCount)
         }
     }
 
     private fun readStepCount() {
+        // Try device sensor first, fallback to Google Fit
+        if (currentStepCount > 0) {
+            updateUIWithStepCount(currentStepCount)
+            return
+        }
+        
+        // Fallback to Google Fit if device sensor not available
+        readStepCountFromGoogleFit()
+    }
+    
+    private fun readStepCountFromGoogleFit() {
         val cal = Calendar.getInstance()
         cal.set(Calendar.DAY_OF_MONTH, 1)
         cal.set(Calendar.HOUR_OF_DAY, 0)
@@ -218,38 +257,59 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                 updateUIWithStepCount(totalSteps)
             }
             .addOnFailureListener { e ->
-                Log.e("CentralActivity", "Failed to read step count", e)
+                Log.e("CentralActivity", "Failed to read step count from Google Fit", e)
                 Toast.makeText(this@CentralActivity, "Failed to read step count: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
+    
+    private fun resetStepCounter() {
+        initialStepCount = -1
+        currentStepCount = 0
+        updateUIWithStepCount(0)
+        Toast.makeText(this, "Step counter reset", Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun getStepDataSource(): String {
+        return when {
+            stepCountSensor != null -> "Device Step Counter"
+            stepDetectorSensor != null -> "Device Step Detector"
+            else -> "Google Fit (Fallback)"
+        }
+    }
+
+    private fun calculateTokens(stepCount: Int): TokenCalculation {
+        val todaySteps = stepCount % DAILY_STEP_GOAL
+        val todayStepTokens = stepCount / DAILY_STEP_GOAL
+        val exchangeableTokens = minOf(todayStepTokens, MONTHLY_TOKEN_EXCHANGE_LIMIT)
+        val remainingTokens = maxOf(0, todayStepTokens - exchangeableTokens)
+        val nonExchangeableTokens = minOf(remainingTokens, 60 - MONTHLY_TOKEN_EXCHANGE_LIMIT)
+        
+        return TokenCalculation(
+            steps = todaySteps,
+            exchangeableTokens = exchangeableTokens,
+            nonExchangeableTokens = nonExchangeableTokens,
+            monthlyExchangeLimit = MONTHLY_TOKEN_EXCHANGE_LIMIT,
+            dailyStepGoal = DAILY_STEP_GOAL
+        )
+    }
 
     private fun updateUIWithStepCount(stepCount: Int) {
-        Toast.makeText(this, "Step count: $stepCount", Toast.LENGTH_SHORT).show()
+        val dataSource = getStepDataSource()
+        Toast.makeText(this, "Steps: $stepCount (via $dataSource)", Toast.LENGTH_SHORT).show()
 
-        val monthlyTokenExchengeLimit: Int = 30
-        var monthlyTokenNonExchengeLimit = 0
-        if (monthlyTokenExchengeLimit < 60){
-            monthlyTokenNonExchengeLimit = 60 - monthlyTokenExchengeLimit
-        } else {
-            monthlyTokenNonExchengeLimit = 0
-        }
-        val todaySteps = stepCount % 10000
-        var todayStepTokens = stepCount / 10000
-        val todayTokensExchengeble = minOf(todayStepTokens, monthlyTokenExchengeLimit)
-        todayStepTokens = maxOf(0, todayStepTokens - todayTokensExchengeble)
-        val todayTokensNotExchangeble = minOf(todayStepTokens, monthlyTokenNonExchengeLimit)
+        val tokenCalculation = calculateTokens(stepCount)
 
-        stepsProgBar.progressMax = 10000f
-        eTokenProgBar.progressMax = monthlyTokenExchengeLimit.toFloat()
-        neTokenProgBar.progressMax = monthlyTokenNonExchengeLimit.toFloat()
+        stepsProgBar.progressMax = DAILY_STEP_GOAL.toFloat()
+        eTokenProgBar.progressMax = MONTHLY_TOKEN_EXCHANGE_LIMIT.toFloat()
+        neTokenProgBar.progressMax = (60 - MONTHLY_TOKEN_EXCHANGE_LIMIT).toFloat()
         
-
-        stepsProgBar.setProgressWithAnimation(todaySteps.toFloat(), 1000)
-        eTokenProgBar.setProgressWithAnimation(todayTokensExchengeble.toFloat(), 1000)
-        neTokenProgBar.setProgressWithAnimation(todayTokensNotExchangeble.toFloat(), 1000)
-        tSteps.text = "$todaySteps/10000"
-        tEToken.text = "$todayTokensExchengeble/$monthlyTokenExchengeLimit"
-        tNEToken.text = "$todayTokensNotExchangeble/$monthlyTokenNonExchengeLimit"
+        stepsProgBar.setProgressWithAnimation(tokenCalculation.steps.toFloat(), 1000)
+        eTokenProgBar.setProgressWithAnimation(tokenCalculation.exchangeableTokens.toFloat(), 1000)
+        neTokenProgBar.setProgressWithAnimation(tokenCalculation.nonExchangeableTokens.toFloat(), 1000)
+        
+        tSteps.text = "${tokenCalculation.steps}/$DAILY_STEP_GOAL"
+        tEToken.text = "${tokenCalculation.exchangeableTokens}/$MONTHLY_TOKEN_EXCHANGE_LIMIT"
+        tNEToken.text = "${tokenCalculation.nonExchangeableTokens}/${60 - MONTHLY_TOKEN_EXCHANGE_LIMIT}"
     }
 
     override fun onRequestPermissionsResult(
