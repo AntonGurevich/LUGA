@@ -32,13 +32,169 @@
             android:layout_marginStart="16dp" />
     </LinearLayout>
 
+    <!-- Permission Status Indicators -->
+    <LinearLayout
+        android:id="@+id/permissionIndicators"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/background_teal"
+        android:padding="8dp"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@+id/topMenu">
+
+        <!-- Activity Recognition Permission -->
+        <LinearLayout
+            android:id="@+id/activityRecognitionIndicator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="4dp">
+
+            <ImageView
+                android:id="@+id/activityRecognitionIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_directions"
+                android:contentDescription="Activity Recognition Permission" />
+
+            <TextView
+                android:id="@+id/activityRecognitionText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Activity"
+                android:textSize="10sp"
+                android:textColor="@android:color/black"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/activityRecognitionStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pending"
+                android:textSize="8sp"
+                android:textColor="@android:color/black"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Body Sensors Permission -->
+        <LinearLayout
+            android:id="@+id/bodySensorsIndicator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="4dp">
+
+            <ImageView
+                android:id="@+id/bodySensorsIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_compass"
+                android:contentDescription="Body Sensors Permission" />
+
+            <TextView
+                android:id="@+id/bodySensorsText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sensors"
+                android:textSize="10sp"
+                android:textColor="@android:color/black"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/bodySensorsStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pending"
+                android:textSize="8sp"
+                android:textColor="@android:color/black"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Google Fit Permission -->
+        <LinearLayout
+            android:id="@+id/googleFitIndicator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="4dp">
+
+            <ImageView
+                android:id="@+id/googleFitIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_share"
+                android:contentDescription="Google Fit Permission" />
+
+            <TextView
+                android:id="@+id/googleFitText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Google Fit"
+                android:textSize="10sp"
+                android:textColor="@android:color/black"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/googleFitStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pending"
+                android:textSize="8sp"
+                android:textColor="@android:color/black"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Google Account Status -->
+        <LinearLayout
+            android:id="@+id/googleAccountIndicator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="4dp">
+
+            <ImageView
+                android:id="@+id/googleAccountIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_myplaces"
+                android:contentDescription="Google Account Status" />
+
+            <TextView
+                android:id="@+id/googleAccountText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Account"
+                android:textSize="10sp"
+                android:textColor="@android:color/black"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/googleAccountStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pending"
+                android:textSize="8sp"
+                android:textColor="@android:color/black"
+                android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/tokenCounterArea"
         android:layout_width="match_parent"
         android:layout_height="170dp"
         android:orientation="horizontal"
         android:background="@color/background_teal"
-        app:layout_constraintTop_toBottomOf="@+id/topMenu">
+        app:layout_constraintTop_toBottomOf="@+id/permissionIndicators">
 
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -166,10 +322,13 @@
             android:background="@color/background_teal"
             android:orientation="horizontal">
 
+            <!-- Steps Progress Bar -->
             <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="match_parent"
-                android:layout_weight="1">
+                android:layout_weight="1"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/circularProgressBarCycling">
 
                 <com.mikhaellopez.circularprogressbar.CircularProgressBar
                     android:id="@+id/circularProgressBarSteps"
@@ -179,7 +338,7 @@
                     app:cpb_background_progressbar_width="5dp"
                     app:cpb_progress="740"
                     app:cpb_progress_direction="to_right"
-                    app:cpb_progress_max="1000"
+                    app:cpb_progress_max="10000"
                     app:cpb_progressbar_color="@color/teal_700"
                     app:cpb_progressbar_width="10dp"
                     app:cpb_round_border="false"
@@ -200,8 +359,6 @@
                     app:layout_constraintTop_toTopOf="@+id/circularProgressBarSteps"
                     app:layout_constraintVertical_bias="0.506">
 
-
-
                     <TextView
                         android:id="@+id/tvSteps"
                         android:layout_width="wrap_content"
@@ -216,7 +373,119 @@
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
                         android:textColor="@color/luga_blue"
-                        android:text="740/1000" />
+                        android:text="740/10000" />
+                </LinearLayout>
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <!-- Cycling Progress Bar -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                app:layout_constraintStart_toEndOf="@+id/circularProgressBarSteps"
+                app:layout_constraintEnd_toStartOf="@+id/circularProgressBarSwimming">
+
+                <com.mikhaellopez.circularprogressbar.CircularProgressBar
+                    android:id="@+id/circularProgressBarCycling"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:cpb_background_progressbar_color="@color/teal_200"
+                    app:cpb_background_progressbar_width="5dp"
+                    app:cpb_progress="0"
+                    app:cpb_progress_direction="to_right"
+                    app:cpb_progress_max="10000"
+                    app:cpb_progressbar_color="@color/luga_blue"
+                    app:cpb_progressbar_width="10dp"
+                    app:cpb_round_border="false"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:orientation="vertical"
+                    app:layout_constraintBottom_toBottomOf="@+id/circularProgressBarCycling"
+                    app:layout_constraintEnd_toEndOf="@+id/circularProgressBarCycling"
+                    app:layout_constraintHorizontal_bias="0.48"
+                    app:layout_constraintStart_toStartOf="@+id/circularProgressBarCycling"
+                    app:layout_constraintTop_toTopOf="@+id/circularProgressBarCycling"
+                    app:layout_constraintVertical_bias="0.506">
+
+                    <TextView
+                        android:id="@+id/tvCycling"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:textColor="@color/luga_blue"
+                        android:text="Cycling to next token" />
+
+                    <TextView
+                        android:id="@+id/tvCyclingBal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:textColor="@color/luga_blue"
+                        android:text="0/10000m" />
+                </LinearLayout>
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <!-- Swimming Progress Bar -->
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                app:layout_constraintStart_toEndOf="@+id/circularProgressBarCycling"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <com.mikhaellopez.circularprogressbar.CircularProgressBar
+                    android:id="@+id/circularProgressBarSwimming"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:cpb_background_progressbar_color="@color/teal_200"
+                    app:cpb_background_progressbar_width="5dp"
+                    app:cpb_progress="0"
+                    app:cpb_progress_direction="to_right"
+                    app:cpb_progress_max="1000"
+                    app:cpb_progressbar_color="@color/teal_700"
+                    app:cpb_progressbar_width="10dp"
+                    app:cpb_round_border="false"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:orientation="vertical"
+                    app:layout_constraintBottom_toBottomOf="@+id/circularProgressBarSwimming"
+                    app:layout_constraintEnd_toEndOf="@+id/circularProgressBarSwimming"
+                    app:layout_constraintHorizontal_bias="0.48"
+                    app:layout_constraintStart_toStartOf="@+id/circularProgressBarSwimming"
+                    app:layout_constraintTop_toTopOf="@+id/circularProgressBarSwimming"
+                    app:layout_constraintVertical_bias="0.506">
+
+                    <TextView
+                        android:id="@+id/tvSwimming"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:textColor="@color/luga_blue"
+                        android:text="Swimming to next token" />
+
+                    <TextView
+                        android:id="@+id/tvSwimmingBal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center"
+                        android:textColor="@color/luga_blue"
+                        android:text="0/1000m" />
                 </LinearLayout>
 
             </androidx.constraintlayout.widget.ConstraintLayout>

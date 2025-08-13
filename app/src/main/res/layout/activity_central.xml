@@ -25,13 +25,169 @@
             android:text="Profile" />
     </LinearLayout>
 
+    <!-- Permission Status Indicators -->
+    <LinearLayout
+        android:id="@+id/permissionIndicators"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@color/background_teal"
+        android:padding="8dp"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@+id/topMenu">
+
+        <!-- Activity Recognition Permission -->
+        <LinearLayout
+            android:id="@+id/activityRecognitionIndicator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="4dp">
+
+            <ImageView
+                android:id="@+id/activityRecognitionIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_directions"
+                android:contentDescription="Activity Recognition Permission" />
+
+            <TextView
+                android:id="@+id/activityRecognitionText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Activity"
+                android:textSize="10sp"
+                android:textColor="@android:color/white"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/activityRecognitionStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pending"
+                android:textSize="8sp"
+                android:textColor="@android:color/white"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Body Sensors Permission -->
+        <LinearLayout
+            android:id="@+id/bodySensorsIndicator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="4dp">
+
+            <ImageView
+                android:id="@+id/bodySensorsIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_compass"
+                android:contentDescription="Body Sensors Permission" />
+
+            <TextView
+                android:id="@+id/bodySensorsText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sensors"
+                android:textSize="10sp"
+                android:textColor="@android:color/white"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/bodySensorsStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pending"
+                android:textSize="8sp"
+                android:textColor="@android:color/white"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Google Fit Permission -->
+        <LinearLayout
+            android:id="@+id/googleFitIndicator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="4dp">
+
+            <ImageView
+                android:id="@+id/googleFitIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_share"
+                android:contentDescription="Google Fit Permission" />
+
+            <TextView
+                android:id="@+id/googleFitText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Google Fit"
+                android:textSize="10sp"
+                android:textColor="@android:color/white"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/googleFitStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pending"
+                android:textSize="8sp"
+                android:textColor="@android:color/white"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Google Account Status -->
+        <LinearLayout
+            android:id="@+id/googleAccountIndicator"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="4dp">
+
+            <ImageView
+                android:id="@+id/googleAccountIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@android:drawable/ic_menu_myplaces"
+                android:contentDescription="Google Account Status" />
+
+            <TextView
+                android:id="@+id/googleAccountText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Account"
+                android:textSize="10sp"
+                android:textColor="@android:color/white"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/googleAccountStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pending"
+                android:textSize="8sp"
+                android:textColor="@android:color/white"
+                android:gravity="center" />
+        </LinearLayout>
+    </LinearLayout>
+
     <LinearLayout
         android:id="@+id/tokenCounterArea"
         android:layout_width="match_parent"
         android:layout_height="170dp"
         android:orientation="horizontal"
         android:background="@color/background_teal"
-        app:layout_constraintTop_toBottomOf="@+id/topMenu">
+        app:layout_constraintTop_toBottomOf="@+id/permissionIndicators">
 
 
         <androidx.constraintlayout.widget.ConstraintLayout

@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "465622083556-78oh5e3f0amcfauifnaa1ktjef0fmkhf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "silverbackgarden.example.luga",
+            "certificate_hash": "a52acfac0046237e64d39bbb7a6e2d4dbfd5f900"
+          }
+        },
+        {
           "client_id": "465622083556-ak567omc8nbucu3eho27b8605t7m8p0p.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -28,6 +36,10 @@
             "package_name": "silverbackgarden.example.luga",
             "certificate_hash": "88a6392631a6e224298f74603cfbef78eece1027"
           }
+        },
+        {
+          "client_id": "465622083556-75gj6fqpims30lr2q1iqo5rd9dpkrc4f.apps.googleusercontent.com",
+          "client_type": 3
         }
       ],
       "api_key": [
@@ -37,7 +49,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "465622083556-75gj6fqpims30lr2q1iqo5rd9dpkrc4f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

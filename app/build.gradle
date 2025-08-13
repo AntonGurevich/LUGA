@@ -13,7 +13,6 @@ android {
         targetSdkVersion 34
         versionCode 1
         versionName "1.0"
-        resValue("string","google_client_id","91441432411-e747bkd55e91a57bfr79l7r8dv7ilggm.apps.googleusercontent.com")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         namespace 'silverbackgarden.example.luga'
     }
