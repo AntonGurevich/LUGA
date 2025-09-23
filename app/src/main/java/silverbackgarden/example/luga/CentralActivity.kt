@@ -3,6 +3,7 @@ package silverbackgarden.example.luga
 // Android system imports for permissions, sensors, and UI
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -803,7 +804,11 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                         .requestEmail()
                         .requestId()
                         .requestProfile()
+                        // Add comprehensive OAuth scopes for Google Fit
                         .requestScopes(Scope("https://www.googleapis.com/auth/fitness.activity.read"))
+                        .requestScopes(Scope("https://www.googleapis.com/auth/fitness.body.read"))
+                        .requestScopes(Scope("https://www.googleapis.com/auth/fitness.location.read"))
+                        .requestScopes(Scope("https://www.googleapis.com/auth/fitness.nutrition.read"))
                         .requestIdToken("465622083556-75gj6fqpims30lr2q1iqo5rd9dpkrc4f.apps.googleusercontent.com") // Web client ID
                         .build()
 
@@ -1131,6 +1136,34 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
              }
              .addOnFailureListener { e ->
                  Log.e(TAG, "Failed to fetch activity data", e)
+                 
+                 // Handle specific OAuth consent error
+                 if (e.message?.contains("5000") == true || e.message?.contains("OAuth consent") == true) {
+                     Log.e(TAG, "OAuth consent required - initiating explicit Google Sign-In")
+                     runOnUiThread {
+                         Toast.makeText(this, "OAuth consent required. Please sign in to Google.", Toast.LENGTH_LONG).show()
+                         
+                         // Show dialog with OAuth consent options
+                         AlertDialog.Builder(this)
+                             .setTitle("Google Fit OAuth Consent Required")
+                             .setMessage("To access your fitness data, you need to grant OAuth consent:\n\n" +
+                                     "1. Sign in to your Google account\n" +
+                                     "2. Grant permission for fitness data access\n" +
+                                     "3. The app will then access your Google Fit data")
+                             .setPositiveButton("Sign In to Google") { _, _ ->
+                                 initiateExplicitGoogleSignIn()
+                             }
+                             .setNegativeButton("Use Device Sensors Only") { _, _ ->
+                                 setupDeviceSensorsOnly()
+                             }
+                             .setNeutralButton("Cancel") { _, _ -> }
+                             .show()
+                     }
+                 } else {
+                     runOnUiThread {
+                         Toast.makeText(this, "Failed to fetch activity data: ${e.message}", Toast.LENGTH_SHORT).show()
+                     }
+                 }
              }
      }
      
@@ -1202,7 +1235,11 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                 .requestEmail()
                 .requestId()
                 .requestProfile()
+                // Add comprehensive OAuth scopes for Google Fit
                 .requestScopes(Scope("https://www.googleapis.com/auth/fitness.activity.read"))
+                .requestScopes(Scope("https://www.googleapis.com/auth/fitness.body.read"))
+                .requestScopes(Scope("https://www.googleapis.com/auth/fitness.location.read"))
+                .requestScopes(Scope("https://www.googleapis.com/auth/fitness.nutrition.read"))
                 .requestIdToken("465622083556-75gj6fqpims30lr2q1iqo5rd9dpkrc4f.apps.googleusercontent.com") // Web client ID
                 .build()
 
@@ -1225,6 +1262,65 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
             Log.e(TAG, "Exception message: ${e.message}")
             Log.e(TAG, "Exception stack trace:", e)
             Toast.makeText(this, "Failed to start Google Sign-In: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    /**
+     * Initiates explicit Google Sign-In with comprehensive OAuth scopes for Google Fit.
+     * This method is called when OAuth consent is required.
+     */
+    private fun initiateExplicitGoogleSignIn() {
+        Log.d(TAG, "=== initiateExplicitGoogleSignIn called ===")
+        Log.d(TAG, "=== Explicit OAuth Google Sign-In Configuration ===")
+        Log.d(TAG, "OAuth Client ID: 465622083556-75gj6fqpims30lr2q1iqo5rd9dpkrc4f.apps.googleusercontent.com")
+        Log.d(TAG, "Requested OAuth scopes:")
+        Log.d(TAG, "  - https://www.googleapis.com/auth/fitness.activity.read")
+        Log.d(TAG, "  - https://www.googleapis.com/auth/fitness.body.read")
+        Log.d(TAG, "  - https://www.googleapis.com/auth/fitness.location.read")
+        Log.d(TAG, "  - https://www.googleapis.com/auth/fitness.nutrition.read")
+        
+        Toast.makeText(this, "Initiating Google OAuth Sign-In...", Toast.LENGTH_SHORT).show()
+        
+        try {
+            // Reset the sign-in attempt flag to allow new attempts
+            googleSignInAttempted = false
+            
+            val signInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestEmail()
+                .requestId()
+                .requestProfile()
+                // Comprehensive OAuth scopes for Google Fit
+                .requestScopes(Scope("https://www.googleapis.com/auth/fitness.activity.read"))
+                .requestScopes(Scope("https://www.googleapis.com/auth/fitness.body.read"))
+                .requestScopes(Scope("https://www.googleapis.com/auth/fitness.location.read"))
+                .requestScopes(Scope("https://www.googleapis.com/auth/fitness.nutrition.read"))
+                .requestIdToken("465622083556-75gj6fqpims30lr2q1iqo5rd9dpkrc4f.apps.googleusercontent.com")
+                .build()
+
+            Log.d(TAG, "Explicit OAuth GoogleSignInOptions built successfully")
+            
+            val signInClient = GoogleSignIn.getClient(this, signInOptions)
+            Log.d(TAG, "Explicit OAuth GoogleSignIn client created successfully")
+            
+            val signInIntent = signInClient.signInIntent
+            Log.d(TAG, "Explicit OAuth sign-in intent created, starting activity for result")
+            
+            startActivityForResult(signInIntent, REQUEST_GOOGLE_SIGN_IN)
+            Log.d(TAG, "Explicit OAuth Google Sign-In activity started")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Explicit OAuth Google Sign-In FAILED", e)
+            Toast.makeText(this, "Failed to start OAuth Sign-In: ${e.message}", Toast.LENGTH_SHORT).show()
+            
+            // Fallback to device sensors
+            AlertDialog.Builder(this)
+                .setTitle("OAuth Sign-In Failed")
+                .setMessage("Unable to start Google OAuth Sign-In. Would you like to use device sensors instead?")
+                .setPositiveButton("Use Device Sensors") { _, _ ->
+                    setupDeviceSensorsOnly()
+                }
+                .setNegativeButton("Cancel") { _, _ -> }
+                .show()
         }
     }
     
