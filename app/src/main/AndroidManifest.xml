@@ -20,7 +20,9 @@
         tools:targetApi="31">
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -30,27 +32,41 @@
         <activity
             android:name=".LoginActivity"
             android:label="Acteamity Login"
-            android:theme="@style/Theme.LUGA" />
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity
             android:name=".RegisterActivity"
             android:label="Acteamity Register"
-            android:theme="@style/Theme.LUGA" />
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity
             android:name=".ProfileActivity"
             android:label="Acteamity Profile"
-            android:theme="@style/Theme.LUGA" />
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".ProfileEditActivity"
             android:label="Acteamity Edit Profile"
-            android:theme="@style/Theme.LUGA" />
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".CentralActivity"
             android:label="Acteamity"
-            android:theme="@style/Theme.LUGA" />
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".PreLoginActivity"
             android:label="Acteamity"
-            android:theme="@style/Theme.LUGA" />
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity
             android:name=".StepDataViewActivity"
-            android:label="Step Data View">
+            android:label="Step Data View"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden">
         </activity>
 
     </application>

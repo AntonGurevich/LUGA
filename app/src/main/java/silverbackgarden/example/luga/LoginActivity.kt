@@ -17,6 +17,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
 import silverbackgarden.example.luga.R
 import android.util.Log
+import io.github.jan.supabase.gotrue.user.UserInfo
 
 /**
  * Login activity that handles user authentication for the Acteamity app.
@@ -35,14 +36,13 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var passwordEditText: EditText   // Password input field
     private lateinit var loginButton: Button          // Login submission button
     private lateinit var createAccountButton: Button  // Registration navigation button
-    private lateinit var deleteButton: Button         // Account deletion button
-
-    // Text views for displaying saved user data (currently unused)
-    private lateinit var textView: TextView
-    private lateinit var textView2: TextView
+    private lateinit var forgotPasswordText: TextView // Forgot password link
 
     // Google Sign-In client for authentication
     private lateinit var googleSignInClient: GoogleSignInClient
+    
+    // Supabase Auth manager for authentication
+    private lateinit var authManager: AuthManager
 
     /**
      * Shared preferences instance for storing user credentials.
@@ -63,60 +63,75 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
+        // Initialize AuthManager
+        authManager = AuthManager(this)
+
         // Initialize all UI elements from the layout
         emailEditText = findViewById(R.id.login_email_edittext)
         passwordEditText = findViewById(R.id.login_password_edittext)
         loginButton = findViewById(R.id.login_button)
         createAccountButton = findViewById(R.id.register_button)
-        deleteButton = findViewById(R.id.delete_button)
+        forgotPasswordText = findViewById(R.id.forgot_password_text)
         
-        // Initially hide the create account button
-        createAccountButton.visibility = View.GONE
-
-        // Check if user data exists to determine UI state
-        if (!isUserDataSaved()) {
-            // No user data - show registration option, hide login elements
-            loginButton.visibility = View.GONE
-            emailEditText.visibility = View.GONE
-            passwordEditText.visibility = View.GONE
-            createAccountButton.visibility = View.VISIBLE
-            deleteButton.visibility = View.GONE
+        // Check if user is already logged in with Supabase
+        if (authManager.isLoggedIn()) {
+            // User is already authenticated - navigate to main app
+            navigateToMainApp()
+            return
         }
 
-        // Retrieve saved user credentials for validation
-        val savedEmail = sharedPref?.getString("email", "no value")
-        val savedPassword = sharedPref?.getString("password", "no value")
+        // Always show login interface - users can choose to login or register
+        loginButton.visibility = View.VISIBLE
+        emailEditText.visibility = View.VISIBLE
+        passwordEditText.visibility = View.VISIBLE
+        createAccountButton.visibility = View.VISIBLE
+
+        // Pre-fill email if saved credentials exist (for migration)
+        if (isUserDataSaved()) {
+            val savedEmail = sharedPref?.getString("email", null)
+            if (!savedEmail.isNullOrEmpty()) {
+                emailEditText.setText(savedEmail)
+            }
+        }
 
         // Set up login button click listener
         loginButton.setOnClickListener {
             val email = emailEditText.text.toString()
             val password = passwordEditText.text.toString()
 
-            // Validate input and check credentials
+            // Validate input
             if (isEmailValid(email) && isPasswordValid(password)) {
-                if (isUserRegistered(email, password)) {
-                    // User authenticated successfully - set up Google Sign-In for fitness data
-                    googleSignInClient = GoogleSignIn.getClient(this, GoogleSignInOptions.Builder(
-                        GoogleSignInOptions.DEFAULT_SIGN_IN)
-                        .requestEmail()
-                        .requestId()
-                        .requestProfile()
-                        .requestScopes(Scope("https://www.googleapis.com/auth/fitness.activity.read"))
-                        .requestIdToken("465622083556-75gj6fqpims30lr2q1iqo5rd9dpkrc4f.apps.googleusercontent.com") // Web client ID
-                        .build())
-                    
-                    // Check if already signed in to Google, otherwise initiate sign-in
-                    GoogleSignIn.getLastSignedInAccount(this)?.let { readStepCount(it) } ?: signIn()
+                // Show loading state
+                loginButton.isEnabled = false
+                loginButton.text = "Signing in..."
+                
+                // Use Supabase Auth for authentication
+                authManager.signIn(email, password, object : AuthManager.AuthCallback {
+                    override fun onSuccess(user: UserInfo?) {
+                        // Reset button state
+                        loginButton.isEnabled = true
+                        loginButton.text = "Login"
+                        
+                        // User authenticated successfully
+                        Toast.makeText(this@LoginActivity, "Login successful!", Toast.LENGTH_SHORT).show()
+                        
+                        // Set up Google Sign-In for fitness data
+                        setupGoogleSignIn()
+                        
+                        // Navigate to main app functionality
+                        navigateToMainApp()
+                    }
 
-                    // Navigate to main app functionality
-                    val intent = Intent(this, CentralActivity::class.java)
-                    startActivity(intent)
-                    finish()
-                } else {
-                    Toast.makeText(this, "Invalid email or password", Toast.LENGTH_SHORT).show()
-                }
+                    override fun onError(error: String) {
+                        // Reset button state
+                        loginButton.isEnabled = true
+                        loginButton.text = "Login"
+                        
+                        Toast.makeText(this@LoginActivity, "Login failed: $error", Toast.LENGTH_LONG).show()
+                    }
+                })
             } else {
-                Toast.makeText(this, "Invalid email or password", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Please enter valid email and password", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -126,31 +141,11 @@ class LoginActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // Set up delete account button with confirmation dialog
-        deleteButton.setOnClickListener {
-            val builder = AlertDialog.Builder(this)
-            builder.setTitle("Delete Account")
-            builder.setMessage("Are you sure you want to delete your account?")
-
-            builder.setPositiveButton("Yes") { dialog, _ ->
-                // Remove saved user credentials
-                val editor = sharedPref?.edit()
-                editor?.remove("email")?.apply()
-                editor?.remove("password")?.apply()
-                
-                // Return to main activity
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-                dialog.dismiss()
-            }
-
-            builder.setNegativeButton("No") { dialog, _ ->
-                dialog.dismiss()
-            }
-
-            val dialog: AlertDialog = builder.create()
-            dialog.show()
+        // Set up forgot password functionality
+        forgotPasswordText.setOnClickListener {
+            showForgotPasswordDialog()
         }
+
     }
 
     /**
@@ -202,6 +197,32 @@ class LoginActivity : AppCompatActivity() {
     }
 
     /**
+     * Sets up Google Sign-In client for fitness data access.
+     */
+    private fun setupGoogleSignIn() {
+        googleSignInClient = GoogleSignIn.getClient(this, GoogleSignInOptions.Builder(
+            GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .requestId()
+            .requestProfile()
+            .requestScopes(Scope("https://www.googleapis.com/auth/fitness.activity.read"))
+            .requestIdToken("465622083556-75gj6fqpims30lr2q1iqo5rd9dpkrc4f.apps.googleusercontent.com") // Web client ID
+            .build())
+        
+        // Check if already signed in to Google, otherwise initiate sign-in
+        GoogleSignIn.getLastSignedInAccount(this)?.let { readStepCount(it) } ?: signIn()
+    }
+
+    /**
+     * Navigates to the main app activity.
+     */
+    private fun navigateToMainApp() {
+        val intent = Intent(this, CentralActivity::class.java)
+        startActivity(intent)
+        finish()
+    }
+
+    /**
      * Placeholder method for reading step count from Google Fit API.
      * Currently not implemented but intended for future fitness data integration.
      * 
@@ -241,6 +262,47 @@ class LoginActivity : AppCompatActivity() {
                 // Handle failed sign-in
             }
         }
+    }
+
+    /**
+     * Shows a dialog for password reset functionality.
+     * Allows users to enter their email to receive a password reset link.
+     */
+    private fun showForgotPasswordDialog() {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Reset Password")
+        builder.setMessage("Enter your email address to receive a password reset link.")
+
+        // Create input field for email
+        val input = EditText(this)
+        input.hint = "Enter your email"
+        input.inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        builder.setView(input)
+
+        builder.setPositiveButton("Send Reset Link") { dialog, _ ->
+            val email = input.text.toString().trim()
+            if (email.isNotEmpty() && isEmailValid(email)) {
+                // Send password reset email using Supabase Auth
+                authManager.resetPassword(email, object : AuthManager.AuthCallback {
+                    override fun onSuccess(user: UserInfo?) {
+                        Toast.makeText(this@LoginActivity, "Password reset email sent to $email", Toast.LENGTH_LONG).show()
+                    }
+                    override fun onError(error: String) {
+                        Toast.makeText(this@LoginActivity, "Failed to send reset email: $error", Toast.LENGTH_LONG).show()
+                    }
+                })
+            } else {
+                Toast.makeText(this, "Please enter a valid email address", Toast.LENGTH_SHORT).show()
+            }
+            dialog.dismiss()
+        }
+
+        builder.setNegativeButton("Cancel") { dialog, _ ->
+            dialog.dismiss()
+        }
+
+        val dialog: AlertDialog = builder.create()
+        dialog.show()
     }
 
     companion object {

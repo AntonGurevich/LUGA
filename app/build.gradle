@@ -2,6 +2,7 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'com.google.gms.google-services'
+    id 'org.jetbrains.kotlin.plugin.serialization'
 }
 
 android {
@@ -71,6 +72,17 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0'
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.7.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
+
+    // Supabase dependencies - using BOM for version management
+    implementation platform('io.github.jan-tennert.supabase:bom:2.5.4')
+    implementation 'io.github.jan-tennert.supabase:gotrue-kt'
+    implementation 'io.github.jan-tennert.supabase:postgrest-kt'
+    implementation 'io.github.jan-tennert.supabase:realtime-kt'
+    implementation 'io.github.jan-tennert.supabase:storage-kt'
+    implementation 'io.ktor:ktor-client-android:2.3.7'
+    
+    // Kotlinx Serialization for JSON handling
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2'
 
     // Add exclusion here
     configurations.configureEach {
