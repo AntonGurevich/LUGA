@@ -761,6 +761,9 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
             .addDataType(DataType.TYPE_DISTANCE_DELTA, FitnessOptions.ACCESS_READ)        // Distance data
             .build()
             
+        // Update permission indicators now that fitnessOptions is initialized
+        updatePermissionIndicators()
+            
         val lastSignedInAccount = GoogleSignIn.getLastSignedInAccount(this)
         Log.d(TAG, "Google account status: ${if (lastSignedInAccount != null) "Signed in" else "Not signed in"}")
         
@@ -853,6 +856,9 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
      */
     private fun fetchGoogleFitDataAndSetupSensors() {
         Log.d(TAG, "=== fetchGoogleFitDataAndSetupSensors called ===")
+        
+        // First setup Google Fit configuration and update indicators
+        setupGoogleFit()
         
         val account = GoogleSignIn.getLastSignedInAccount(this)
         if (account == null) {

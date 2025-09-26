@@ -3,6 +3,8 @@ package silverbackgarden.example.luga
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.functions.functions
 import io.github.jan.supabase.gotrue.Auth
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.builtin.Email
@@ -11,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import silverbackgarden.example.luga.SupabaseClient
 
 /**
  * Authentication manager for handling Supabase Auth operations.
@@ -242,6 +245,50 @@ class AuthManager(private val context: Context) {
                 Log.e(TAG, "Password reset error: ${e.message}")
                 withContext(Dispatchers.Main) {
                     callback.onError("Password reset failed: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Deletes the current authenticated user account.
+     * This is used for cleanup when database operations fail after auth registration.
+     * 
+     * @param callback Callback to handle the result
+     */
+    fun deleteCurrentUser(callback: AuthCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Deleting current user account for cleanup")
+                
+                // Get current user ID
+                val currentUser = supabase.auth.currentUserOrNull()
+                if (currentUser == null) {
+                    Log.d(TAG, "No current user to delete")
+                    withContext(Dispatchers.Main) {
+                        clearUserSession()
+                        callback.onSuccess(null)
+                    }
+                    return@launch
+                }
+                
+                // Call Edge Function to delete user (requires service role key)
+                val response = supabase.functions.invoke(
+                    function = "delete-user-account",
+                    body = mapOf("user_id" to currentUser.id.toString())
+                )
+                
+                withContext(Dispatchers.Main) {
+                    clearUserSession()
+                    Log.d(TAG, "User account deletion requested successfully")
+                    callback.onSuccess(null)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "User deletion error: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    // Even if deletion fails, clear local session
+                    clearUserSession()
+                    callback.onError("User deletion failed: ${e.message}")
                 }
             }
         }

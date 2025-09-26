@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
  * Test activity for verifying Supabase database operations.
  * 
  * This activity provides a simple interface to test user registration,
- * duplicate checking, and data retrieval from the Supabase Users2 table.
+ * duplicate checking, and data retrieval from the Supabase user_registry table.
  * 
  * Note: This is for testing purposes and should be removed in production.
  */
@@ -78,7 +78,7 @@ class SupabaseTestActivity : AppCompatActivity() {
                 supabaseUserManager.getAllUsers(object : SupabaseUserManager.DatabaseCallback<List<UserData>> {
                     override fun onSuccess(result: List<UserData>) {
                         val allUsersText = "\nTotal users in database: ${result.size}\n"
-                        val usersList = result.joinToString("\n") { "ID: ${it.UID}, Email: ${it.email}, Code: ${it.connection_code}" }
+                        val usersList = result.joinToString("\n") { "ID: ${it.uid}, Email: ${it.email}, Code: ${it.connection_code}" }
                         resultTextView.text = resultText + allUsersText + usersList
                     }
                     

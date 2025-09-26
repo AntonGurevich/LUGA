@@ -1,7 +1,11 @@
 package silverbackgarden.example.luga
 
 import android.util.Log
+import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.functions.functions
+import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
+import silverbackgarden.example.luga.SupabaseClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -12,7 +16,7 @@ import java.util.*
 /**
  * Database manager for handling user operations with Supabase.
  * 
- * This class provides methods to interact with the Users2 table in Supabase,
+ * This class provides methods to interact with the user_registry table in Supabase,
  * including user registration, duplicate checking, and data retrieval.
  * 
  * All database operations are performed asynchronously using coroutines
@@ -22,7 +26,7 @@ class SupabaseUserManager {
     
     companion object {
         private const val TAG = "SupabaseUserManager"
-        private const val USERS_TABLE = "Users2"
+        private const val USERS_TABLE = "users_registry"
     }
     
     private val supabase = SupabaseClient.client
@@ -57,7 +61,7 @@ class SupabaseUserManager {
                 
                 Log.d(TAG, "Retrieved ${allUsers.size} users from database")
                 allUsers.forEach { user ->
-                    Log.d(TAG, "Found user: UID=${user.UID}, email=${user.email}, connection_code=${user.connection_code}")
+                    Log.d(TAG, "Found user: uid=${user.uid}, UID_legacy=${user.UID_legacy}, email=${user.email}, connection_code=${user.connection_code}")
                 }
                 
                 val existingUser = allUsers.find { 
@@ -85,7 +89,7 @@ class SupabaseUserManager {
     }
     
     /**
-     * Registers a new user in the Users2 table using the Supabase Auth user ID.
+     * Registers a new user in the user_registry table using the Supabase Auth user ID.
      * 
      * @param email User's email address
      * @param connectionCode User's connection code
@@ -108,26 +112,66 @@ class SupabaseUserManager {
                 
                 if (existingUser != null) {
                     Log.d(TAG, "User already exists in database: $existingUser")
-                    withContext(Dispatchers.Main) {
-                        callback.onSuccess(existingUser)
+                    
+                    // Check if the existing user already has an auth UID
+                    if (existingUser.uid != null) {
+                        Log.d(TAG, "User already has auth UID, returning existing user")
+                        withContext(Dispatchers.Main) {
+                            callback.onSuccess(existingUser)
+                        }
+                        return@launch
+                    }
+                    
+                    // User exists but has no auth UID - update with new auth UID
+                    Log.d(TAG, "User exists without auth UID, updating with new auth UID: $authUserId")
+                    try {
+                        supabase.from(USERS_TABLE)
+                            .update(mapOf("uid" to authUserId)) {
+                                filter {
+                                    eq("email", email)
+                                }
+                            }
+                        
+                        // Fetch the updated user
+                        val updatedUsers = supabase.from(USERS_TABLE)
+                            .select()
+                            .decodeList<UserData>()
+                        
+                        val updatedUser = updatedUsers.find { it.email == email }
+                        if (updatedUser != null) {
+                            Log.d(TAG, "User updated successfully with auth UID: $updatedUser")
+                            withContext(Dispatchers.Main) {
+                                callback.onSuccess(updatedUser)
+                            }
+                        } else {
+                            Log.e(TAG, "Failed to retrieve updated user")
+                            withContext(Dispatchers.Main) {
+                                callback.onError("Failed to update existing user")
+                            }
+                        }
+                    } catch (updateError: Exception) {
+                        Log.e(TAG, "Failed to update existing user: ${updateError.message}")
+                        withContext(Dispatchers.Main) {
+                            callback.onError("Failed to update existing user: ${updateError.message}")
+                        }
                     }
                     return@launch
                 }
                 
                 val registrationDate = getCurrentDateString()
                 
-                // Convert Auth UID to a unique Long value for the database
-                val uidLong = generateUniqueUID(authUserId)
-                Log.d(TAG, "Generated UID: $uidLong from Auth UID: $authUserId")
+                // Convert Auth UID to a unique Long value for legacy compatibility
+                val uidLegacy = generateUniqueUID(authUserId)
+                Log.d(TAG, "Generated legacy UID: $uidLegacy from Auth UID: $authUserId")
                 
                 val newUser = CreateUserData(
-                    UID = uidLong,
+                    UID_legacy = uidLegacy,
                     email = email,
                     connection_code = connectionCode,
                     registration_date = registrationDate
                 )
                 
-                // Insert the user
+                // Insert the user (uid will be auto-generated by auth.uid())
                 Log.d(TAG, "Attempting to insert user: $newUser")
                 supabase.from(USERS_TABLE)
                     .insert(newUser)
@@ -197,7 +241,7 @@ class SupabaseUserManager {
     }
     
     /**
-     * Gets all users from the Users2 table.
+     * Gets all users from the user_registry table.
      * 
      * @param callback Callback to handle the result
      */
@@ -249,7 +293,7 @@ class SupabaseUserManager {
                 
                 Log.d(TAG, "DEBUG: Retrieved ${result.size} users")
                 result.forEachIndexed { index, user ->
-                    Log.d(TAG, "DEBUG: User $index: UID=${user.UID}, email=${user.email}, connection_code=${user.connection_code}, registration_date=${user.registration_date}")
+                    Log.d(TAG, "DEBUG: User $index: uid=${user.uid}, UID_legacy=${user.UID_legacy}, email=${user.email}, connection_code=${user.connection_code}, registration_date=${user.registration_date}")
                 }
                 
                 withContext(Dispatchers.Main) {
@@ -299,5 +343,197 @@ class SupabaseUserManager {
     private fun getCurrentDateString(): String {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         return dateFormat.format(Date())
+    }
+    
+    /**
+     * Transactional user registration that handles both auth and database operations atomically.
+     * If database insertion fails, the auth user is automatically cleaned up.
+     * 
+     * @param email User's email address
+     * @param password User's password
+     * @param connectionCode User's connection code
+     * @param authManager AuthManager instance for auth operations
+     * @param callback Callback to handle the result
+     */
+    fun registerUserTransactionally(
+        email: String, 
+        password: String, 
+        connectionCode: Long, 
+        authManager: AuthManager,
+        callback: DatabaseCallback<UserData>
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Starting transactional user registration for: $email")
+                
+                // Step 1: Check if user already exists in database
+                val existingUsers = supabase.from(USERS_TABLE)
+                    .select()
+                    .decodeList<UserData>()
+                
+                val existingUser = existingUsers.find { 
+                    it.email == email 
+                }
+                
+                if (existingUser != null) {
+                    Log.d(TAG, "User already exists in database: $existingUser")
+                    
+                    // Check if the existing user already has an auth UID
+                    if (existingUser.uid != null) {
+                        Log.d(TAG, "User already has auth UID, returning existing user")
+                        withContext(Dispatchers.Main) {
+                            callback.onSuccess(existingUser)
+                        }
+                        return@launch
+                    }
+                    
+                    // User exists but has no auth UID - we need to create auth user and update DB
+                    Log.d(TAG, "User exists without auth UID, will create auth user and update DB")
+                }
+                
+                // Step 2: Register with Supabase Auth
+                Log.d(TAG, "Registering with Supabase Auth")
+                val authResult = supabase.auth.signUpWith(io.github.jan.supabase.gotrue.providers.builtin.Email) {
+                    this.email = email
+                    this.password = password
+                }
+                
+                val currentUser = supabase.auth.currentUserOrNull()
+                if (currentUser == null) {
+                    Log.e(TAG, "Auth registration failed - no user returned")
+                    withContext(Dispatchers.Main) {
+                        callback.onError("Authentication registration failed")
+                    }
+                    return@launch
+                }
+                
+                Log.d(TAG, "Auth registration successful, user ID: ${currentUser.id}")
+                
+                // Step 3: Handle database operation based on whether user exists
+                if (existingUser != null) {
+                    // User exists but has no auth UID - update with new auth UID
+                    Log.d(TAG, "Updating existing user with auth UID: ${currentUser.id}")
+                    try {
+                        supabase.from(USERS_TABLE)
+                            .update(mapOf("uid" to currentUser.id.toString())) {
+                                filter {
+                                    eq("email", email)
+                                }
+                            }
+                        
+                        // Fetch the updated user
+                        val updatedUsers = supabase.from(USERS_TABLE)
+                            .select()
+                            .decodeList<UserData>()
+                        
+                        val result = updatedUsers.find { it.email == email }
+                        if (result != null) {
+                            Log.d(TAG, "User updated successfully with auth UID: $result")
+                            withContext(Dispatchers.Main) {
+                                callback.onSuccess(result)
+                            }
+                        } else {
+                            Log.e(TAG, "Failed to retrieve updated user - cleaning up auth user")
+                            // Clean up auth user since update verification failed
+                            try {
+                                supabase.functions.invoke(
+                                    function = "delete-user-account",
+                                    body = mapOf("user_id" to currentUser.id.toString())
+                                )
+                                Log.d(TAG, "Auth user cleanup completed")
+                            } catch (cleanupError: Exception) {
+                                Log.e(TAG, "Failed to cleanup auth user: ${cleanupError.message}")
+                            }
+                            
+                            withContext(Dispatchers.Main) {
+                                callback.onError("Failed to update existing user")
+                            }
+                        }
+                    } catch (updateError: Exception) {
+                        Log.e(TAG, "Failed to update existing user: ${updateError.message}")
+                        // Clean up auth user since update failed
+                        try {
+                            supabase.functions.invoke(
+                                function = "delete-user-account",
+                                body = mapOf("user_id" to currentUser.id.toString())
+                            )
+                            Log.d(TAG, "Auth user cleanup completed")
+                        } catch (cleanupError: Exception) {
+                            Log.e(TAG, "Failed to cleanup auth user: ${cleanupError.message}")
+                        }
+                        
+                        withContext(Dispatchers.Main) {
+                            callback.onError("Failed to update existing user: ${updateError.message}")
+                        }
+                    }
+                } else {
+                    // New user - insert into database
+                    val registrationDate = getCurrentDateString()
+                    val uidLegacy = generateUniqueUID(currentUser.id.toString())
+                    
+                    val newUser = CreateUserData(
+                        UID_legacy = uidLegacy,
+                        email = email,
+                        connection_code = connectionCode,
+                        registration_date = registrationDate
+                    )
+                    
+                    Log.d(TAG, "Inserting new user into database: $newUser")
+                    supabase.from(USERS_TABLE)
+                        .insert(newUser)
+                    
+                    // Step 4: Verify insertion by fetching the user
+                    val insertedUsers = supabase.from(USERS_TABLE)
+                        .select()
+                        .decodeList<UserData>()
+                    
+                    val result = insertedUsers.find { it.email == email }
+                    
+                    if (result != null) {
+                        Log.d(TAG, "Transactional registration successful: $result")
+                        withContext(Dispatchers.Main) {
+                            callback.onSuccess(result)
+                        }
+                    } else {
+                        Log.e(TAG, "Database insertion failed - cleaning up auth user")
+                        // Clean up auth user since database insertion failed
+                        try {
+                            supabase.functions.invoke(
+                                function = "delete-user-account",
+                                body = mapOf("user_id" to currentUser.id.toString())
+                            )
+                            Log.d(TAG, "Auth user cleanup completed")
+                        } catch (cleanupError: Exception) {
+                            Log.e(TAG, "Failed to cleanup auth user: ${cleanupError.message}")
+                        }
+                        
+                        withContext(Dispatchers.Main) {
+                            callback.onError("Database insertion failed and auth user was cleaned up")
+                        }
+                    }
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Transactional registration error: ${e.message}")
+                
+                // Attempt to clean up auth user if it was created
+                try {
+                    val currentUser = supabase.auth.currentUserOrNull()
+                    if (currentUser != null) {
+                        Log.d(TAG, "Cleaning up auth user due to registration error")
+                        supabase.functions.invoke(
+                            function = "delete-user-account",
+                            body = mapOf("user_id" to currentUser.id.toString())
+                        )
+                    }
+                } catch (cleanupError: Exception) {
+                    Log.e(TAG, "Failed to cleanup auth user: ${cleanupError.message}")
+                }
+                
+                withContext(Dispatchers.Main) {
+                    callback.onError("Registration failed: ${e.message}")
+                }
+            }
+        }
     }
 }

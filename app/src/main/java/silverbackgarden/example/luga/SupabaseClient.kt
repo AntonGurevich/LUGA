@@ -1,6 +1,7 @@
 package silverbackgarden.example.luga
 
 import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.functions.Functions
 import io.github.jan.supabase.gotrue.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
@@ -25,7 +26,7 @@ object SupabaseClient {
     
     /**
      * Singleton Supabase client instance.
-     * Configured with Auth, Postgrest, Realtime, and Storage modules.
+     * Configured with Auth, Postgrest, Realtime, Storage, and Functions modules.
      */
     val client = createSupabaseClient(
         supabaseUrl = SUPABASE_URL,
@@ -35,5 +36,6 @@ object SupabaseClient {
         install(Postgrest)
         install(Realtime)
         install(Storage)
+        install(Functions)
     }
 }

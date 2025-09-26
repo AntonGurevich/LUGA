@@ -248,7 +248,7 @@ class RegisterActivity : AppCompatActivity() {
     }
     
     /**
-     * Saves user data to Supabase Users2 table after successful auth registration.
+     * Saves user data to Supabase user_registry table after successful auth registration.
      * 
      * @param email User's email address
      * @param connectionCode User's connection code
@@ -275,21 +275,38 @@ class RegisterActivity : AppCompatActivity() {
                 registerButton.isEnabled = true
                 registerButton.text = "Register"
                 
-                Toast.makeText(this@RegisterActivity, "Registration successful! User ID: ${result.UID}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@RegisterActivity, "Registration successful! User ID: ${result.uid}", Toast.LENGTH_LONG).show()
                 
-                // Navigate to login activity
-                val intent = Intent(this@RegisterActivity, LoginActivity::class.java)
+                // Navigate directly to main app since user is already authenticated
+                val intent = Intent(this@RegisterActivity, CentralActivity::class.java)
                 startActivity(intent)
                 finish()
             }
 
             override fun onError(error: String) {
                 Log.e("RegisterActivity", "Failed to save user to database: $error")
-                // Reset button state
-                registerButton.isEnabled = true
-                registerButton.text = "Register"
                 
-                Toast.makeText(this@RegisterActivity, "Failed to save user data: $error", Toast.LENGTH_LONG).show()
+                // Clean up the auth user since database insertion failed
+                Log.d("RegisterActivity", "Cleaning up auth user due to database failure")
+                authManager.deleteCurrentUser(object : AuthManager.AuthCallback {
+                    override fun onSuccess(user: UserInfo?) {
+                        Log.d("RegisterActivity", "Auth user cleanup completed")
+                        // Reset button state
+                        registerButton.isEnabled = true
+                        registerButton.text = "Register"
+                        
+                        Toast.makeText(this@RegisterActivity, "Registration failed: $error", Toast.LENGTH_LONG).show()
+                    }
+                    
+                    override fun onError(cleanupError: String) {
+                        Log.e("RegisterActivity", "Failed to cleanup auth user: $cleanupError")
+                        // Reset button state even if cleanup fails
+                        registerButton.isEnabled = true
+                        registerButton.text = "Register"
+                        
+                        Toast.makeText(this@RegisterActivity, "Registration failed: $error (Cleanup also failed: $cleanupError)", Toast.LENGTH_LONG).show()
+                    }
+                })
             }
         })
     }
@@ -325,8 +342,8 @@ class RegisterActivity : AppCompatActivity() {
                 val result = registerUserViaAPICall(email, password, name, surname)
                 if (result.isSuccess) {
                     Toast.makeText(this@RegisterActivity, "User registered successfully!", Toast.LENGTH_LONG).show()
-                    // Navigate to login activity
-                    val intent = Intent(this@RegisterActivity, LoginActivity::class.java)
+                    // Navigate directly to main app since user is already authenticated
+                    val intent = Intent(this@RegisterActivity, CentralActivity::class.java)
                     startActivity(intent)
                     finish()
                 } else {
@@ -453,8 +470,8 @@ class RegisterActivity : AppCompatActivity() {
         builder.setMessage("Registration successful! Please check your email and click the verification link to activate your account. You can then log in with your credentials.")
         builder.setPositiveButton("OK") { dialog, _ ->
             dialog.dismiss()
-            // Navigate back to login
-            val intent = Intent(this, LoginActivity::class.java)
+            // Navigate directly to main app since user is already authenticated
+            val intent = Intent(this, CentralActivity::class.java)
             startActivity(intent)
             finish()
         }
