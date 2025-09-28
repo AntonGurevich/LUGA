@@ -13,6 +13,8 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Bundle
 import android.util.Log
+import android.view.Menu
+import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
@@ -67,8 +69,7 @@ import java.math.BigInteger
  */
 class CentralActivity : AppCompatActivity(), SensorEventListener {
 
-    // Profile navigation button
-    private var profileButton: Button? = null
+    // Profile button is now handled in the ActionBar menu
 
          // UI Elements - Circular progress bars for visual representation
      private var stepsProgBar: CircularProgressBar? = null      // Shows daily step progress
@@ -215,8 +216,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
          if (stepsProgBar == null || cyclingProgBar == null || swimmingProgBar == null ||
              eTokenProgBar == null || neTokenProgBar == null ||
              tSteps == null || tCycling == null || tSwimming == null ||
-             tEToken == null || tNEToken == null ||
-             profileButton == null) {
+             tEToken == null || tNEToken == null) {
              Log.e(TAG, "Critical UI elements failed to initialize - showing error and finishing activity")
              Toast.makeText(this, "Error: Required UI elements not found. Please check the app layout.", Toast.LENGTH_LONG).show()
              finish()
@@ -230,6 +230,93 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         
         // Check monthly data validity after permissions are granted
         checkMonthlyDataValidity()
+    }
+
+    /**
+     * Creates the options menu for the ActionBar.
+     */
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        Log.d(TAG, "=== onCreateOptionsMenu called ===")
+        menuInflater.inflate(R.menu.central_activity_menu, menu)
+        return true
+    }
+
+    /**
+     * Handles menu item selections.
+     */
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        Log.d(TAG, "=== onOptionsItemSelected called ===")
+        return when (item.itemId) {
+            R.id.action_profile -> {
+                Log.d(TAG, "Profile menu item selected")
+                val intent = Intent(this, ProfileActivity::class.java)
+                startActivity(intent)
+                true
+            }
+            R.id.action_sensor_status -> {
+                Log.d(TAG, "Sensor status toggle selected")
+                toggleSensorStatusVisibility()
+                // Update the menu item check state
+                item.isChecked = !item.isChecked
+                true
+            }
+            R.id.action_logout -> {
+                Log.d(TAG, "Logout menu item selected")
+                performLogout()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    /**
+     * Toggles the visibility of sensor status indicators.
+     */
+    private fun toggleSensorStatusVisibility() {
+        Log.d(TAG, "=== toggleSensorStatusVisibility called ===")
+        
+        // Find the permission indicators layout
+        val permissionIndicators = findViewById<View>(R.id.permissionIndicators)
+        if (permissionIndicators != null) {
+            val isVisible = permissionIndicators.visibility == View.VISIBLE
+            permissionIndicators.visibility = if (isVisible) View.GONE else View.VISIBLE
+            
+            val message = if (isVisible) "Sensor indicators hidden" else "Sensor indicators shown"
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "Sensor indicators visibility changed to: ${!isVisible}")
+        } else {
+            Log.e(TAG, "Permission indicators layout not found")
+        }
+    }
+
+    /**
+     * Performs user logout by clearing session and returning to login screen.
+     */
+    private fun performLogout() {
+        Log.d(TAG, "=== performLogout called ===")
+        
+        // Show confirmation dialog
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Logout")
+            .setMessage("Are you sure you want to logout?")
+            .setPositiveButton("Yes") { _, _ ->
+                Log.d(TAG, "User confirmed logout")
+                
+                // Clear any stored session data
+                val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                prefs.edit().clear().apply()
+                
+                // Navigate to login screen
+                val intent = Intent(this, LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                Log.d(TAG, "Logout cancelled by user")
+                dialog.dismiss()
+            }
+            .show()
     }
     
     override fun onStart() {
@@ -329,68 +416,14 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                 Log.w(TAG, "Some permission indicators not found in layout")
             }
 
-            // Initialize profile button with null check to prevent crashes
-            profileButton = findViewById(R.id.profileButton)
-            if (profileButton == null) {
-                Log.e(TAG, "profileButton not found in layout")
-                return
+            // Hide sensor indicators by default
+            val permissionIndicators = findViewById<View>(R.id.permissionIndicators)
+            if (permissionIndicators != null) {
+                permissionIndicators.visibility = View.GONE
+                Log.d(TAG, "Sensor indicators hidden by default")
             }
-            
-            // Set the profile button background color to match app theme
-            profileButton?.setBackgroundColor(ContextCompat.getColor(this, R.color.luga_blue))
 
-            // Set up profile button click listener for navigation
-            profileButton?.setOnClickListener {
-                val intent = Intent(this, ProfileActivity::class.java)
-                startActivity(intent)
-            }
-            
-            // Add long press to profile button to show permission status
-            // This provides users with a quick way to check app permission status
-            profileButton?.setOnLongClickListener {
-                updatePermissionIndicators() // Update indicators before showing status
-                showPermissionStatus()
-                true
-            }
-            
-            // Add touch listener for advanced gesture controls on profile button
-            // These gestures provide developer/debug functionality:
-            // - Double tap: Clear all preferences and reset Google Sign-In
-            // - Triple tap: Manually trigger Google Sign-In process
-            // - Quadruple tap: Reset only the Google Sign-In flag
-            var tapCount = 0
-            var lastTapTime = 0L
-            profileButton?.setOnTouchListener { _, event ->
-                if (event.action == android.view.MotionEvent.ACTION_DOWN) {
-                    val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastTapTime < 1000) { // Tap within 1000ms
-                        tapCount++
-                        if (tapCount == 2) {
-                            // Double tap - clear preferences
-                            Log.d(TAG, "Double tap detected, clearing all preferences")
-                            clearAllPreferences()
-                            resetGoogleSignInFlag()
-                            Toast.makeText(this, "All preferences cleared and Google Sign-In reset", Toast.LENGTH_SHORT).show()
-                            tapCount = 0
-                        } else if (tapCount == 3) {
-                            // Triple tap - trigger Google Sign-In
-                            Log.d(TAG, "Triple tap detected, manually triggering Google Sign-In")
-                            manualGoogleSignIn()
-                            tapCount = 0
-                        } else if (tapCount == 4) {
-                            // Quadruple tap - reset Google Sign-In flag only
-                            Log.d(TAG, "Quadruple tap detected, resetting Google Sign-In flag")
-                            resetGoogleSignInFlag()
-                            Toast.makeText(this, "Google Sign-In flag reset", Toast.LENGTH_SHORT).show()
-                            tapCount = 0
-                        }
-                    } else {
-                        tapCount = 1
-                    }
-                    lastTapTime = currentTime
-                }
-                false
-            }
+            // Profile button is now handled in the ActionBar menu
             
                          // Set up progress bar click listeners for navigation and functionality
              stepsProgBar?.setOnClickListener {

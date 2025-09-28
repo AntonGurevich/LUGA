@@ -9,27 +9,12 @@
         android:layout_width="match_parent"
         android:layout_height="70dp"
         android:orientation="horizontal"
-
         android:background="@color/background_teal"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        android:gravity="right"
         app:layout_constraintTop_toTopOf="parent">
-
-
-        <Button
-            android:id="@+id/profileButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginRight="5dp"
-            android:text="Profile" />
-
-        <Button
-            android:id="@+id/activateStepCountWorkerButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Activate Step Count Worker"
-            android:layout_marginStart="16dp" />
+        
+        <!-- This LinearLayout is now empty but kept for spacing -->
     </LinearLayout>
 
     <!-- Permission Status Indicators -->
