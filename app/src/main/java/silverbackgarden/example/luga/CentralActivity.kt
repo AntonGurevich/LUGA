@@ -367,21 +367,21 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
 
             // Initialize text views with null checks to prevent crashes
             // These display the numerical values for steps, cycling, swimming, and tokens
-            tSteps = findViewById(R.id.tvStepsBal)
+            tSteps = findViewById(R.id.tvStepsProgress)
             if (tSteps == null) {
-                Log.e(TAG, "tvStepsBal not found in layout")
+                Log.e(TAG, "tvStepsProgress not found in layout")
                 return
             }
             
-            tCycling = findViewById(R.id.tvCyclingBal)
+            tCycling = findViewById(R.id.tvCyclingProgress)
             if (tCycling == null) {
-                Log.e(TAG, "tvCyclingBal not found in layout")
+                Log.e(TAG, "tvCyclingProgress not found in layout")
                 return
             }
             
-            tSwimming = findViewById(R.id.tvSwimmingBal)
+            tSwimming = findViewById(R.id.tvSwimmingProgress)
             if (tSwimming == null) {
-                Log.e(TAG, "tvSwimmingBal not found in layout")
+                Log.e(TAG, "tvSwimmingProgress not found in layout")
                 return
             }
             
