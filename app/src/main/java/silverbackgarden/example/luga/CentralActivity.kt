@@ -25,6 +25,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 
@@ -773,10 +775,20 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
             Log.d(TAG, "Google Fit permissions already granted")
             
             // Initialize WorkManager for step counting since Google Fit is available
-            val stepCountWorkRequest = PeriodicWorkRequestBuilder<StepCountWorker>(2, TimeUnit.HOURS)
+            val stepCountWorkRequest = PeriodicWorkRequestBuilder<StepCountWorker>(6, TimeUnit.HOURS)
                 .build()
-            WorkManager.getInstance(this).enqueue(stepCountWorkRequest)
-            Log.d(TAG, "StepCountWorker initialized and enqueued")
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "step_sync_work",
+                ExistingPeriodicWorkPolicy.KEEP,
+                stepCountWorkRequest
+            )
+            Log.d(TAG, "StepCountWorker initialized and enqueued with unique policy")
+            
+            // Also schedule an immediate one-time execution for testing
+            val immediateWorkRequest = OneTimeWorkRequestBuilder<StepCountWorker>()
+                .build()
+            WorkManager.getInstance(this).enqueue(immediateWorkRequest)
+            Log.d(TAG, "Immediate StepCountWorker execution scheduled for testing")
             
             readStepCount()
         } else {
@@ -981,10 +993,33 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         Log.d(TAG, "=== startPeriodicGoogleFitUpdates called ===")
         
         // Start background worker for periodic Google Fit updates
-        val stepCountWorkRequest = PeriodicWorkRequestBuilder<StepCountWorker>(2, TimeUnit.HOURS)
+        val stepCountWorkRequest = PeriodicWorkRequestBuilder<StepCountWorker>(6, TimeUnit.HOURS)
             .build()
-        WorkManager.getInstance(this).enqueue(stepCountWorkRequest)
-        Log.d(TAG, "StepCountWorker initialized and enqueued")
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "step_sync_work",
+            ExistingPeriodicWorkPolicy.KEEP,
+            stepCountWorkRequest
+        )
+        Log.d(TAG, "StepCountWorker initialized and enqueued with unique policy")
+        
+        // Also schedule an immediate one-time execution for testing
+        val immediateWorkRequest = OneTimeWorkRequestBuilder<StepCountWorker>()
+            .build()
+        WorkManager.getInstance(this).enqueue(immediateWorkRequest)
+        Log.d(TAG, "Immediate StepCountWorker execution scheduled for testing")
+    }
+    
+    /**
+     * Manually triggers the StepCountWorker for immediate testing.
+     * This is useful for debugging and verifying worker functionality.
+     */
+    private fun triggerWorkerManually() {
+        Log.d(TAG, "=== Manual Worker Trigger ===")
+        val manualWorkRequest = OneTimeWorkRequestBuilder<StepCountWorker>()
+            .build()
+        WorkManager.getInstance(this).enqueue(manualWorkRequest)
+        Log.d(TAG, "Manual StepCountWorker execution triggered")
+        Toast.makeText(this, "Worker triggered manually - check logs", Toast.LENGTH_SHORT).show()
     }
     
     /**
@@ -2016,10 +2051,20 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                     Log.d(TAG, "Google Fit permissions granted")
                     
                     // Initialize WorkManager for step counting since Google Fit permissions are now granted
-                    val stepCountWorkRequest = PeriodicWorkRequestBuilder<StepCountWorker>(2, TimeUnit.HOURS)
+                    val stepCountWorkRequest = PeriodicWorkRequestBuilder<StepCountWorker>(6, TimeUnit.HOURS)
                         .build()
-                    WorkManager.getInstance(this).enqueue(stepCountWorkRequest)
-                    Log.d(TAG, "StepCountWorker initialized and enqueued after permission grant")
+                    WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                        "step_sync_work",
+                        ExistingPeriodicWorkPolicy.KEEP,
+                        stepCountWorkRequest
+                    )
+                    Log.d(TAG, "StepCountWorker initialized and enqueued after permission grant with unique policy")
+                    
+                    // Also schedule an immediate one-time execution for testing
+                    val immediateWorkRequest = OneTimeWorkRequestBuilder<StepCountWorker>()
+                        .build()
+                    WorkManager.getInstance(this).enqueue(immediateWorkRequest)
+                    Log.d(TAG, "Immediate StepCountWorker execution scheduled after permission grant")
                     
                     setupGoogleFit()
                 } else {

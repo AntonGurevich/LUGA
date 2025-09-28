@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -27,6 +28,9 @@ class SupabaseUserManager {
     companion object {
         private const val TAG = "SupabaseUserManager"
         private const val USERS_TABLE = "users_registry"
+        private const val STEPS_TABLE = "raw_steps"
+        private const val BIKE_TABLE = "raw_bike"
+        private const val SWIM_TABLE = "raw_swim"
     }
     
     private val supabase = SupabaseClient.client
@@ -536,4 +540,664 @@ class SupabaseUserManager {
             }
         }
     }
+
+    // ================================
+    // STEP DATA MANAGEMENT METHODS
+    // ================================
+    
+    /**
+     * Checks if step data exists for a specific user and date.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param date Date string in "yyyy-MM-dd" format
+     * @param callback Callback to handle the result (true if exists, false if not)
+     */
+    fun checkStepDataExists(userUid: String, date: String, callback: DatabaseCallback<Boolean>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Checking if step data exists for user: $userUid, date: $date")
+                
+                val result = supabase.from(STEPS_TABLE)
+                    .select()
+                    .decodeList<StepData>()
+                
+                val existingRecord = result.find { 
+                    it.uid == userUid && it.date == date 
+                }
+                
+                withContext(Dispatchers.Main) {
+                    val exists = existingRecord != null
+                    Log.d(TAG, "Step data exists for $userUid on $date: $exists")
+                    callback.onSuccess(exists)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error checking step data existence: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback.onError("Failed to check step data: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Inserts step data for a specific user and date.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param date Date string in "yyyy-MM-dd" format
+     * @param steps Number of steps for the day
+     * @param callback Callback to handle the result
+     */
+    fun insertStepData(userUid: String, date: String, steps: Int, callback: DatabaseCallback<StepData>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Inserting step data for user: $userUid, date: $date, steps: $steps")
+                
+                val newStepData = CreateStepData(
+                    uid = userUid,
+                    date = date,
+                    steps = steps
+                )
+                
+                supabase.from(STEPS_TABLE)
+                    .insert(newStepData)
+                
+                // Fetch the inserted record to return it
+                val insertedRecords = supabase.from(STEPS_TABLE)
+                    .select()
+                    .decodeList<StepData>()
+                
+                val result = insertedRecords.find { 
+                    it.uid == userUid && it.date == date 
+                }
+                
+                if (result != null) {
+                    withContext(Dispatchers.Main) {
+                        Log.d(TAG, "Step data inserted successfully: $result")
+                        callback.onSuccess(result)
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Log.e(TAG, "Step data was inserted but could not be retrieved")
+                        callback.onError("Insert completed but could not retrieve step data")
+                    }
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error inserting step data: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback.onError("Failed to insert step data: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Checks and inserts step data for multiple dates if they don't exist.
+     * This is the main method used by the background worker.
+     * Uses upsert strategy to handle race conditions and concurrent workers.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param stepReports List of step reports to check and potentially insert
+     * @param callback Callback to handle the result (returns count of inserted records)
+     */
+    fun syncStepData(userUid: String, stepReports: List<StepDataReport>, callback: DatabaseCallback<Int>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Syncing step data for user: $userUid, reports: ${stepReports.size}")
+                
+                var insertedCount = 0
+                
+                // Get all existing step data for this user to check in bulk
+                val existingRecords = try {
+                    supabase.from(STEPS_TABLE)
+                        .select()
+                        .decodeList<StepData>()
+                        .filter { it.uid == userUid }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not fetch existing records, proceeding with upsert: ${e.message}")
+                    emptyList()
+                }
+                
+                Log.d(TAG, "Found ${existingRecords.size} existing step records for user")
+                
+                stepReports.forEach { report ->
+                    val existingRecord = existingRecords.find { it.date == report.date }
+                    
+                    if (existingRecord == null) {
+                        // Record doesn't exist, try to insert it with upsert logic
+                        Log.d(TAG, "Attempting to upsert step data: ${report.date} - ${report.steps} steps")
+                        
+                        val success = upsertStepData(userUid, report.date, report.steps)
+                        if (success) {
+                            insertedCount++
+                        }
+                    } else if (existingRecord.steps < report.steps) {
+                        // Current DB value is less than new app value, update it
+                        Log.d(TAG, "Updating step data for ${report.date}: ${existingRecord.steps} -> ${report.steps} steps")
+                        
+                        val success = updateStepData(userUid, report.date, report.steps)
+                        if (success) {
+                            insertedCount++
+                        }
+                    } else {
+                        Log.d(TAG, "Step data for ${report.date} is up to date (DB: ${existingRecord.steps} >= App: ${report.steps})")
+                    }
+                }
+                
+                withContext(Dispatchers.Main) {
+                    Log.d(TAG, "Step data sync completed. Inserted $insertedCount new records.")
+                    callback.onSuccess(insertedCount)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing step data: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback.onError("Failed to sync step data: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Updates existing step data with new value.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param date Date string in "yyyy-MM-dd" format
+     * @param steps New number of steps for the day
+     * @return True if the record was successfully updated
+     */
+    private suspend fun updateStepData(userUid: String, date: String, steps: Int): Boolean {
+        return try {
+            val updateData = CreateStepData(
+                uid = userUid,
+                date = date,
+                steps = steps
+            )
+            
+            supabase.from(STEPS_TABLE)
+                .update(updateData) {
+                    filter {
+                        eq("uid", userUid)
+                        eq("date", date)
+                    }
+                }
+            
+            Log.d(TAG, "Successfully updated step data: $date - $steps steps")
+            true
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error updating step data for $date: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Safely inserts step data using upsert strategy to handle duplicates.
+     * This method handles race conditions where multiple workers might try to insert the same record.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param date Date string in "yyyy-MM-dd" format
+     * @param steps Number of steps for the day
+     * @return True if the record was successfully inserted, false if it already existed
+     */
+    private suspend fun upsertStepData(userUid: String, date: String, steps: Int): Boolean {
+        return try {
+            val newStepData = CreateStepData(
+                uid = userUid,
+                date = date,
+                steps = steps
+            )
+            
+            // Try to insert the record
+            supabase.from(STEPS_TABLE)
+                .insert(newStepData)
+            
+            Log.d(TAG, "Successfully inserted step data: $date - $steps steps")
+            true
+            
+        } catch (e: Exception) {
+            when {
+                e.message?.contains("duplicate key") == true -> {
+                    // Record already exists (race condition), this is expected
+                    Log.d(TAG, "Step data already exists for $date (race condition), continuing")
+                    false
+                }
+                e.message?.contains("violates unique constraint") == true -> {
+                    // Same as above, just different error message format
+                    Log.d(TAG, "Step data already exists for $date (unique constraint), continuing")
+                    false
+                }
+                else -> {
+                    // Unexpected error, log it but don't fail the entire sync
+                    Log.e(TAG, "Unexpected error inserting step data for $date: ${e.message}")
+                    false
+                }
+            }
+        }
+    }
+    
+    /**
+     * Gets step data for a specific user and date range.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param startDate Start date in "yyyy-MM-dd" format (inclusive)
+     * @param endDate End date in "yyyy-MM-dd" format (inclusive)
+     * @param callback Callback to handle the result
+     */
+    fun getStepDataRange(userUid: String, startDate: String, endDate: String, callback: DatabaseCallback<List<StepData>>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Getting step data for user: $userUid, range: $startDate to $endDate")
+                
+                val allRecords = supabase.from(STEPS_TABLE)
+                    .select()
+                    .decodeList<StepData>()
+                
+                val filteredRecords = allRecords.filter { 
+                    it.uid == userUid && it.date >= startDate && it.date <= endDate 
+                }
+                
+                withContext(Dispatchers.Main) {
+                    Log.d(TAG, "Retrieved ${filteredRecords.size} step records for date range")
+                    callback.onSuccess(filteredRecords)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting step data range: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback.onError("Failed to get step data: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Gets the current Supabase user UID.
+     * Helper method for other components that need user identification.
+     * 
+     * @return User UID string or null if no user is signed in
+     */
+    fun getCurrentUserUid(): String? {
+        return try {
+            val currentUser = supabase.auth.currentUserOrNull()
+            currentUser?.id?.toString()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting current user: ${e.message}")
+            null
+        }
+    }
+    
+    // ================================
+    // BIKE DATA MANAGEMENT METHODS
+    // ================================
+    
+    /**
+     * Syncs bike distance data to Supabase using upsert strategy.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param bikeReports List of bike reports to check and potentially insert
+     * @param callback Callback to handle the result (returns count of inserted records)
+     */
+    fun syncBikeData(userUid: String, bikeReports: List<BikeDataReport>, callback: DatabaseCallback<Int>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Syncing bike data for user: $userUid, reports: ${bikeReports.size}")
+                
+                var insertedCount = 0
+                
+                // Get all existing bike data for this user to check in bulk
+                val existingRecords = try {
+                    supabase.from(BIKE_TABLE)
+                        .select()
+                        .decodeList<BikeData>()
+                        .filter { it.uid == userUid }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not fetch existing bike records, proceeding with upsert: ${e.message}")
+                    emptyList()
+                }
+                
+                Log.d(TAG, "Found ${existingRecords.size} existing bike records for user")
+                
+                bikeReports.forEach { report ->
+                    val existingRecord = existingRecords.find { it.date == report.date }
+                    val newValue = report.meters.toInt()
+                    
+                    if (existingRecord == null) {
+                        // Record doesn't exist, try to insert it with upsert logic
+                        Log.d(TAG, "Attempting to upsert bike data: ${report.date} - ${report.meters}m")
+                        
+                        val success = upsertBikeData(userUid, report.date, report.meters)
+                        if (success) {
+                            insertedCount++
+                        }
+                    } else if (existingRecord.m_per_day < newValue) {
+                        // Current DB value is less than new app value, update it
+                        Log.d(TAG, "Updating bike data for ${report.date}: ${existingRecord.m_per_day}m -> ${newValue}m")
+                        
+                        val success = updateBikeData(userUid, report.date, report.meters)
+                        if (success) {
+                            insertedCount++
+                        }
+                    } else {
+                        Log.d(TAG, "Bike data for ${report.date} is up to date (DB: ${existingRecord.m_per_day}m >= App: ${newValue}m)")
+                    }
+                }
+                
+                withContext(Dispatchers.Main) {
+                    Log.d(TAG, "Bike data sync completed. Inserted $insertedCount new records.")
+                    callback.onSuccess(insertedCount)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing bike data: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback.onError("Failed to sync bike data: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Safely inserts bike data using upsert strategy to handle duplicates.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param date Date string in "yyyy-MM-dd" format
+     * @param meters Distance in meters for the day
+     * @return True if the record was successfully inserted, false if it already existed
+     */
+    private suspend fun upsertBikeData(userUid: String, date: String, meters: Float): Boolean {
+        return try {
+            val newBikeData = CreateBikeData(
+                uid = userUid,
+                date = date,
+                m_per_day = meters.toInt()
+            )
+            
+            supabase.from(BIKE_TABLE)
+                .insert(newBikeData)
+            
+            Log.d(TAG, "Successfully inserted bike data: $date - ${meters}m")
+            true
+            
+        } catch (e: Exception) {
+            when {
+                e.message?.contains("duplicate key") == true -> {
+                    Log.d(TAG, "Bike data already exists for $date (race condition), continuing")
+                    false
+                }
+                e.message?.contains("violates unique constraint") == true -> {
+                    Log.d(TAG, "Bike data already exists for $date (unique constraint), continuing")
+                    false
+                }
+                else -> {
+                    Log.e(TAG, "Unexpected error inserting bike data for $date: ${e.message}")
+                    false
+                }
+            }
+        }
+    }
+    
+    // ================================
+    // SWIM DATA MANAGEMENT METHODS
+    // ================================
+    
+    /**
+     * Syncs swimming distance data to Supabase using upsert strategy.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param swimReports List of swim reports to check and potentially insert
+     * @param callback Callback to handle the result (returns count of inserted records)
+     */
+    fun syncSwimData(userUid: String, swimReports: List<SwimDataReport>, callback: DatabaseCallback<Int>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Syncing swim data for user: $userUid, reports: ${swimReports.size}")
+                
+                var insertedCount = 0
+                
+                // Get all existing swim data for this user to check in bulk
+                val existingRecords = try {
+                    supabase.from(SWIM_TABLE)
+                        .select()
+                        .decodeList<SwimData>()
+                        .filter { it.uid == userUid }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Could not fetch existing swim records, proceeding with upsert: ${e.message}")
+                    emptyList()
+                }
+                
+                Log.d(TAG, "Found ${existingRecords.size} existing swim records for user")
+                
+                swimReports.forEach { report ->
+                    val existingRecord = existingRecords.find { it.date == report.date }
+                    val newValue = report.meters.toInt()
+                    
+                    if (existingRecord == null) {
+                        // Record doesn't exist, try to insert it with upsert logic
+                        Log.d(TAG, "Attempting to upsert swim data: ${report.date} - ${report.meters}m")
+                        
+                        val success = upsertSwimData(userUid, report.date, report.meters)
+                        if (success) {
+                            insertedCount++
+                        }
+                    } else if (existingRecord.m_per_day < newValue) {
+                        // Current DB value is less than new app value, update it
+                        Log.d(TAG, "Updating swim data for ${report.date}: ${existingRecord.m_per_day}m -> ${newValue}m")
+                        
+                        val success = updateSwimData(userUid, report.date, report.meters)
+                        if (success) {
+                            insertedCount++
+                        }
+                    } else {
+                        Log.d(TAG, "Swim data for ${report.date} is up to date (DB: ${existingRecord.m_per_day}m >= App: ${newValue}m)")
+                    }
+                }
+                
+                withContext(Dispatchers.Main) {
+                    Log.d(TAG, "Swim data sync completed. Inserted $insertedCount new records.")
+                    callback.onSuccess(insertedCount)
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error syncing swim data: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback.onError("Failed to sync swim data: ${e.message}")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Updates existing bike data with new value.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param date Date string in "yyyy-MM-dd" format
+     * @param meters New distance in meters for the day
+     * @return True if the record was successfully updated
+     */
+    private suspend fun updateBikeData(userUid: String, date: String, meters: Float): Boolean {
+        return try {
+            val updateData = CreateBikeData(
+                uid = userUid,
+                date = date,
+                m_per_day = meters.toInt()
+            )
+            
+            supabase.from(BIKE_TABLE)
+                .update(updateData) {
+                    filter {
+                        eq("uid", userUid)
+                        eq("date", date)
+                    }
+                }
+            
+            Log.d(TAG, "Successfully updated bike data: $date - ${meters}m")
+            true
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error updating bike data for $date: ${e.message}")
+            false
+        }
+    }
+    
+    /**
+     * Updates existing swim data with new value.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param date Date string in "yyyy-MM-dd" format
+     * @param meters New distance in meters for the day
+     * @return True if the record was successfully updated
+     */
+    private suspend fun updateSwimData(userUid: String, date: String, meters: Float): Boolean {
+        return try {
+            val updateData = CreateSwimData(
+                uid = userUid,
+                date = date,
+                m_per_day = meters.toInt()
+            )
+            
+            supabase.from(SWIM_TABLE)
+                .update(updateData) {
+                    filter {
+                        eq("uid", userUid)
+                        eq("date", date)
+                    }
+                }
+            
+            Log.d(TAG, "Successfully updated swim data: $date - ${meters}m")
+            true
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error updating swim data for $date: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Safely inserts swim data using upsert strategy to handle duplicates.
+     * 
+     * @param userUid User's UID from Supabase Auth
+     * @param date Date string in "yyyy-MM-dd" format
+     * @param meters Distance in meters for the day
+     * @return True if the record was successfully inserted, false if it already existed
+     */
+    private suspend fun upsertSwimData(userUid: String, date: String, meters: Float): Boolean {
+        return try {
+            val newSwimData = CreateSwimData(
+                uid = userUid,
+                date = date,
+                m_per_day = meters.toInt()
+            )
+            
+            supabase.from(SWIM_TABLE)
+                .insert(newSwimData)
+            
+            Log.d(TAG, "Successfully inserted swim data: $date - ${meters}m")
+            true
+            
+        } catch (e: Exception) {
+            when {
+                e.message?.contains("duplicate key") == true -> {
+                    Log.d(TAG, "Swim data already exists for $date (race condition), continuing")
+                    false
+                }
+                e.message?.contains("violates unique constraint") == true -> {
+                    Log.d(TAG, "Swim data already exists for $date (unique constraint), continuing")
+                    false
+                }
+                else -> {
+                    Log.e(TAG, "Unexpected error inserting swim data for $date: ${e.message}")
+                    false
+                }
+            }
+        }
+    }
 }
+
+/**
+ * Data class for step data from Supabase raw_steps table.
+ */
+@Serializable
+data class StepData(
+    val uid: String,
+    val date: String,
+    val steps: Int
+)
+
+/**
+ * Data class for creating new step data records.
+ */
+@Serializable
+data class CreateStepData(
+    val uid: String,
+    val date: String,
+    val steps: Int
+)
+
+/**
+ * Data class for step data reports used by the worker.
+ */
+@Serializable
+data class StepDataReport(
+    val date: String,
+    val steps: Int
+)
+
+/**
+ * Data class for bike distance data from Supabase raw_bike table.
+ */
+@Serializable
+data class BikeData(
+    val uid: String,
+    val date: String,
+    val m_per_day: Int
+)
+
+/**
+ * Data class for creating new bike distance records.
+ */
+@Serializable
+data class CreateBikeData(
+    val uid: String,
+    val date: String,
+    val m_per_day: Int
+)
+
+/**
+ * Data class for bike distance reports used by the worker.
+ */
+@Serializable
+data class BikeDataReport(
+    val date: String,
+    val meters: Float
+)
+
+/**
+ * Data class for swimming distance data from Supabase raw_swim table.
+ */
+@Serializable
+data class SwimData(
+    val uid: String,
+    val date: String,
+    val m_per_day: Int
+)
+
+/**
+ * Data class for creating new swimming distance records.
+ */
+@Serializable
+data class CreateSwimData(
+    val uid: String,
+    val date: String,
+    val m_per_day: Int
+)
+
+/**
+ * Data class for swimming distance reports used by the worker.
+ */
+@Serializable
+data class SwimDataReport(
+    val date: String,
+    val meters: Float
+)
