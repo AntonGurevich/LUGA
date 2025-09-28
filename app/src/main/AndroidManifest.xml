@@ -44,6 +44,18 @@
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity
+            android:name=".RegisterStep1Activity"
+            android:label="Acteamity Register - Step 1"
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity
+            android:name=".RegisterStep2Activity"
+            android:label="Acteamity Register - Step 2"
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity
             android:name=".ProfileActivity"
             android:label="Acteamity Profile"
             android:theme="@style/Theme.LUGA"

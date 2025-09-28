@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    tools:context=".RegisterStep2Activity">
+
+    <TextView
+        android:id="@+id/step2_title_textview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Complete Registration"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="32dp" />
+
+    <TextView
+        android:id="@+id/step2_description_textview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Enter your employer connection code from the invitation email to complete your registration."
+        android:textSize="16sp"
+        android:gravity="center"
+        android:layout_below="@id/step2_title_textview"
+        android:layout_marginBottom="32dp" />
+
+    <EditText
+        android:id="@+id/employer_code_edittext"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter Employer Code"
+        android:inputType="text"
+        android:layout_below="@id/step2_description_textview"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/step2_help_textview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Don't have a code? Contact your employer or administrator."
+        android:textSize="12sp"
+        android:textColor="@android:color/darker_gray"
+        android:gravity="center"
+        android:layout_below="@id/employer_code_edittext"
+        android:layout_marginBottom="32dp" />
+
+    <Button
+        android:id="@+id/complete_registration_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Complete Registration"
+        android:layout_below="@id/step2_help_textview"
+        android:layout_marginTop="16dp" />
+
+</RelativeLayout>
+

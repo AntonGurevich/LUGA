@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
  * Test activity for verifying Supabase database operations.
  * 
  * This activity provides a simple interface to test user registration,
- * duplicate checking, and data retrieval from the Supabase user_registry table.
+ * duplicate checking, and data retrieval from the Supabase users_registry table.
  * 
  * Note: This is for testing purposes and should be removed in production.
  */

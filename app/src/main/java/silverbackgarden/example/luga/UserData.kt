@@ -3,14 +3,13 @@ package silverbackgarden.example.luga
 import kotlinx.serialization.Serializable
 
 /**
- * Data class representing a user in the user_registry table in Supabase.
+ * Data class representing a user in the users_registry table in Supabase.
  * 
  * This class matches the Supabase database schema with the following fields:
  * - uid: Primary key (uuid, default auth.uid())
- * - UID_legacy: Legacy UID field (int8)
  * - email: Unique email address (varchar)
  * - connection_code: Unique connection code (int8)
- * - registration_date: Registration date (varchar)
+ * - registration_date: Registration date (date)
  * 
  * The class uses Kotlinx Serialization for easy conversion to/from JSON
  * when communicating with Supabase.
@@ -18,21 +17,19 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class UserData(
     val uid: String? = null,  // Primary key, UUID from auth.uid()
-    val UID_legacy: Long? = null,  // Legacy UID field
     val email: String,
     val connection_code: Long,
     val registration_date: String
 )
 
 /**
- * Data class for creating a new user in the user_registry table.
+ * Data class for creating a new user in the users_registry table.
  * 
  * This class is used when inserting new users. The uid field is auto-generated
- * by Supabase using auth.uid(), and UID_legacy is optional for backward compatibility.
+ * by Supabase using auth.uid().
  */
 @Serializable
 data class CreateUserData(
-    val UID_legacy: Long? = null,  // Optional legacy UID for backward compatibility
     val email: String,
     val connection_code: Long,
     val registration_date: String

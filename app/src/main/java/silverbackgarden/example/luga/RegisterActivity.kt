@@ -50,20 +50,17 @@ class RegisterActivity : AppCompatActivity() {
 
     /**
      * Called when the activity is first created.
-     * Initializes the UI, sets up event listeners, and establishes database connection.
+     * Redirects to the new 2-step registration process.
      * 
      * @param savedInstanceState Bundle containing the activity's previously saved state
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_register)
-
-        // Initialize AuthManager
-        authManager = AuthManager(this)
-        supabaseUserManager = SupabaseUserManager()
-
-        bindViews()        // Initialize UI element references
-        setupListeners()   // Set up button and switch event handlers
+        
+        // Redirect to the new 2-step registration process
+        val intent = Intent(this, RegisterStep1Activity::class.java)
+        startActivity(intent)
+        finish()
     }
 
     /**
@@ -248,7 +245,7 @@ class RegisterActivity : AppCompatActivity() {
     }
     
     /**
-     * Saves user data to Supabase user_registry table after successful auth registration.
+     * Saves user data to Supabase users_registry table after successful auth registration.
      * 
      * @param email User's email address
      * @param connectionCode User's connection code

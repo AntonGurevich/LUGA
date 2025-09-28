@@ -50,6 +50,45 @@ class AuthManager(private val context: Context) {
     
     /**
      * Registers a new user with email and password.
+     * Returns a Result for easier coroutine integration.
+     * 
+     * @param email User's email address
+     * @param password User's password
+     * @return Result<UserInfo?> indicating success or failure
+     */
+    suspend fun registerUser(email: String, password: String): Result<UserInfo?> {
+        return withContext(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Starting registration for email: $email")
+                val result = supabase.auth.signUpWith(Email) {
+                    this.email = email
+                    this.password = password
+                }
+                
+                Log.d(TAG, "Registration result: $result")
+                
+                // Check if registration was successful
+                val currentUser = supabase.auth.currentUserOrNull()
+                Log.d(TAG, "Current user after registration: $currentUser")
+                
+                if (currentUser != null) {
+                    saveUserSession(currentUser)
+                    Log.d(TAG, "User registered successfully: ${currentUser.email}")
+                    Result.success(currentUser)
+                } else {
+                    // Check if this is an email confirmation required scenario
+                    Log.d(TAG, "Registration completed but no user returned - likely email confirmation required")
+                    Result.success(null) // Success but needs email confirmation
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Registration error: ${e.message}")
+                Result.failure(e)
+            }
+        }
+    }
+
+    /**
+     * Registers a new user with email and password.
      * 
      * @param email User's email address
      * @param password User's password

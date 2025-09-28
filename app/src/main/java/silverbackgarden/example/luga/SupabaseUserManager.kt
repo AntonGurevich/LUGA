@@ -17,7 +17,7 @@ import java.util.*
 /**
  * Database manager for handling user operations with Supabase.
  * 
- * This class provides methods to interact with the user_registry table in Supabase,
+ * This class provides methods to interact with the users_registry table in Supabase,
  * including user registration, duplicate checking, and data retrieval.
  * 
  * All database operations are performed asynchronously using coroutines
@@ -65,7 +65,7 @@ class SupabaseUserManager {
                 
                 Log.d(TAG, "Retrieved ${allUsers.size} users from database")
                 allUsers.forEach { user ->
-                    Log.d(TAG, "Found user: uid=${user.uid}, UID_legacy=${user.UID_legacy}, email=${user.email}, connection_code=${user.connection_code}")
+                    Log.d(TAG, "Found user: uid=${user.uid}, email=${user.email}, connection_code=${user.connection_code}")
                 }
                 
                 val existingUser = allUsers.find { 
@@ -93,7 +93,7 @@ class SupabaseUserManager {
     }
     
     /**
-     * Registers a new user in the user_registry table using the Supabase Auth user ID.
+     * Registers a new user in the users_registry table using the Supabase Auth user ID.
      * 
      * @param email User's email address
      * @param connectionCode User's connection code
@@ -164,12 +164,7 @@ class SupabaseUserManager {
                 
                 val registrationDate = getCurrentDateString()
                 
-                // Convert Auth UID to a unique Long value for legacy compatibility
-                val uidLegacy = generateUniqueUID(authUserId)
-                Log.d(TAG, "Generated legacy UID: $uidLegacy from Auth UID: $authUserId")
-                
                 val newUser = CreateUserData(
-                    UID_legacy = uidLegacy,
                     email = email,
                     connection_code = connectionCode,
                     registration_date = registrationDate
@@ -245,7 +240,7 @@ class SupabaseUserManager {
     }
     
     /**
-     * Gets all users from the user_registry table.
+     * Gets all users from the users_registry table.
      * 
      * @param callback Callback to handle the result
      */
@@ -297,7 +292,7 @@ class SupabaseUserManager {
                 
                 Log.d(TAG, "DEBUG: Retrieved ${result.size} users")
                 result.forEachIndexed { index, user ->
-                    Log.d(TAG, "DEBUG: User $index: uid=${user.uid}, UID_legacy=${user.UID_legacy}, email=${user.email}, connection_code=${user.connection_code}, registration_date=${user.registration_date}")
+                    Log.d(TAG, "DEBUG: User $index: uid=${user.uid}, email=${user.email}, connection_code=${user.connection_code}, registration_date=${user.registration_date}")
                 }
                 
                 withContext(Dispatchers.Main) {
@@ -313,31 +308,6 @@ class SupabaseUserManager {
         }
     }
     
-    /**
-     * Generates a unique Long UID from a Supabase Auth UID string.
-     * Uses a combination of hash functions to ensure uniqueness and avoid collisions.
-     * 
-     * @param authUid The Supabase Auth UID string
-     * @return A unique Long value suitable for int8 database field
-     */
-    private fun generateUniqueUID(authUid: String): Long {
-        // Remove hyphens from UUID to get a clean string
-        val cleanUid = authUid.replace("-", "")
-        
-        // Use multiple hash approaches to ensure uniqueness
-        val hash1 = cleanUid.hashCode().toLong()
-        val hash2 = cleanUid.fold(0L) { acc, char -> 
-            acc * 31L + char.code.toLong() 
-        }
-        
-        // Combine hashes and ensure positive value
-        val combinedHash = (hash1 xor hash2).let { 
-            if (it < 0) -it else it 
-        }
-        
-        // Ensure the result fits in int8 range (0 to 9,223,372,036,854,775,807)
-        return combinedHash % Long.MAX_VALUE
-    }
     
     /**
      * Gets the current date as a formatted string.
@@ -473,10 +443,8 @@ class SupabaseUserManager {
                 } else {
                     // New user - insert into database
                     val registrationDate = getCurrentDateString()
-                    val uidLegacy = generateUniqueUID(currentUser.id.toString())
                     
                     val newUser = CreateUserData(
-                        UID_legacy = uidLegacy,
                         email = email,
                         connection_code = connectionCode,
                         registration_date = registrationDate
