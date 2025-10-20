@@ -31,6 +31,7 @@ class SupabaseUserManager {
         private const val STEPS_TABLE = "raw_steps"
         private const val BIKE_TABLE = "raw_bike"
         private const val SWIM_TABLE = "raw_swim"
+        private const val COMPANY_USER_REGISTRY_TABLE = "dmp_company_user_registry"
     }
     
     private val supabase = SupabaseClient.client
@@ -796,6 +797,111 @@ class SupabaseUserManager {
         }
     }
     
+    /**
+     * Validates an employer connection code against the company user registry.
+     * Checks if the code exists, is effective, and is not already used by another user.
+     * 
+     * @param connectionCode The employer connection code to validate
+     * @param callback Callback to handle the validation result
+     */
+    fun validateEmployerCode(connectionCode: Long, callback: DatabaseCallback<EmployerCodeValidationResult>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Validating employer code: $connectionCode")
+                
+                // Step 1: Check if code exists in dmp_company_user_registry
+                val companyRegistry = try {
+                    supabase.from(COMPANY_USER_REGISTRY_TABLE)
+                        .select()
+                        .decodeList<CompanyUserRegistry>()
+                        .find { it.connection_code == connectionCode }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error querying company registry: ${e.message}")
+                    null
+                }
+                
+                if (companyRegistry == null) {
+                    Log.d(TAG, "Employer code $connectionCode not found in company registry")
+                    withContext(Dispatchers.Main) {
+                        callback.onSuccess(EmployerCodeValidationResult(
+                            isValid = false,
+                            errorMessage = "Invalid employer code. Please check your code and try again.",
+                            companyInfo = null
+                        ))
+                    }
+                    return@launch
+                }
+                
+                // Step 2: Check if code is effective (current date is within effective period)
+                val currentDate = java.time.LocalDate.now()
+                val effectiveFrom = companyRegistry.effective_from?.let { 
+                    try { java.time.LocalDate.parse(it) } catch (e: Exception) { null }
+                }
+                val effectiveTo = companyRegistry.effective_to?.let { 
+                    try { java.time.LocalDate.parse(it) } catch (e: Exception) { null }
+                }
+                
+                val isEffective = when {
+                    effectiveFrom == null -> false // No effective date means not effective
+                    effectiveTo == null -> currentDate.isAfter(effectiveFrom) || currentDate.isEqual(effectiveFrom) // NULL means no end date
+                    else -> currentDate.isAfter(effectiveFrom) && currentDate.isBefore(effectiveTo) || 
+                           currentDate.isEqual(effectiveFrom) || currentDate.isEqual(effectiveTo)
+                }
+                
+                if (!isEffective) {
+                    Log.d(TAG, "Employer code $connectionCode is not effective. From: $effectiveFrom, To: $effectiveTo, Current: $currentDate")
+                    withContext(Dispatchers.Main) {
+                        callback.onSuccess(EmployerCodeValidationResult(
+                            isValid = false,
+                            errorMessage = "This employer code is not currently active. Please contact your administrator.",
+                            companyInfo = companyRegistry
+                        ))
+                    }
+                    return@launch
+                }
+                
+                // Step 3: Check if code is already used by another user in users_registry
+                val existingUsers = try {
+                    supabase.from(USERS_TABLE)
+                        .select()
+                        .decodeList<UserData>()
+                        .filter { it.connection_code == connectionCode }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error querying users registry: ${e.message}")
+                    emptyList()
+                }
+                
+                if (existingUsers.isNotEmpty()) {
+                    Log.d(TAG, "Employer code $connectionCode is already used by ${existingUsers.size} user(s)")
+                    withContext(Dispatchers.Main) {
+                        callback.onSuccess(EmployerCodeValidationResult(
+                            isValid = false,
+                            errorMessage = "This employer code is already in use by another user. Please contact your administrator.",
+                            companyInfo = companyRegistry
+                        ))
+                    }
+                    return@launch
+                }
+                
+                // All validations passed
+                Log.d(TAG, "Employer code $connectionCode is valid and available")
+                withContext(Dispatchers.Main) {
+                    callback.onSuccess(EmployerCodeValidationResult(
+                        isValid = true,
+                        errorMessage = null,
+                        companyInfo = companyRegistry
+                    ))
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error validating employer code: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback.onError("Failed to validate employer code: ${e.message}")
+                }
+            }
+        }
+    }
+    
     // ================================
     // BIKE DATA MANAGEMENT METHODS
     // ================================
@@ -1082,6 +1188,31 @@ class SupabaseUserManager {
         }
     }
 }
+
+/**
+ * Data class for company user registry from dmp_company_user_registry table.
+ */
+@Serializable
+data class CompanyUserRegistry(
+    val user_corp_email: String,
+    val corpuid: String,
+    val company_name: String,
+    val connection_code: Long,
+    val user_name: String,
+    val user_surname: String,
+    val effective_from: String?,
+    val effective_to: String?
+)
+
+/**
+ * Data class for employer code validation result.
+ */
+@Serializable
+data class EmployerCodeValidationResult(
+    val isValid: Boolean,
+    val errorMessage: String?,
+    val companyInfo: CompanyUserRegistry?
+)
 
 /**
  * Data class for step data from Supabase raw_steps table.

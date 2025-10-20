@@ -62,10 +62,48 @@ class RegisterStep2Activity : AppCompatActivity() {
             return
         }
 
+        // Parse employer code as connection code
+        val connectionCode = employerCode.toLongOrNull()
+        if (connectionCode == null) {
+            Toast.makeText(this, "Invalid employer code format. Please enter a valid number.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         // Show progress
         completeRegistrationButton.isEnabled = false
-        completeRegistrationButton.text = "Completing Registration..."
+        completeRegistrationButton.text = "Validating Code..."
 
+        // First validate the employer code
+        supabaseUserManager.validateEmployerCode(connectionCode, object : SupabaseUserManager.DatabaseCallback<EmployerCodeValidationResult> {
+            override fun onSuccess(result: EmployerCodeValidationResult) {
+                if (!result.isValid) {
+                    // Validation failed
+                    completeRegistrationButton.isEnabled = true
+                    completeRegistrationButton.text = "Complete Registration"
+                    Toast.makeText(this@RegisterStep2Activity, result.errorMessage ?: "Invalid employer code", Toast.LENGTH_LONG).show()
+                    return
+                }
+                
+                // Validation passed, proceed with registration
+                completeRegistrationButton.text = "Completing Registration..."
+                proceedWithRegistration(connectionCode, result.companyInfo)
+            }
+
+            override fun onError(error: String) {
+                completeRegistrationButton.isEnabled = true
+                completeRegistrationButton.text = "Complete Registration"
+                Toast.makeText(this@RegisterStep2Activity, "Error validating employer code: $error", Toast.LENGTH_LONG).show()
+            }
+        })
+    }
+    
+    /**
+     * Proceeds with user registration after employer code validation passes.
+     * 
+     * @param connectionCode The validated connection code
+     * @param companyInfo The company information from the registry
+     */
+    private fun proceedWithRegistration(connectionCode: Long, companyInfo: CompanyUserRegistry?) {
         // Create database record
         CoroutineScope(Dispatchers.Main).launch {
             try {
@@ -80,9 +118,6 @@ class RegisterStep2Activity : AppCompatActivity() {
                     return@launch
                 }
 
-                // Parse employer code as connection code
-                val connectionCode = employerCode.toLongOrNull() ?: supabaseUserManager.generateConnectionCode()
-
                 // Create user record in database
                 supabaseUserManager.registerUser(
                     email = userEmail,
@@ -91,7 +126,8 @@ class RegisterStep2Activity : AppCompatActivity() {
                     callback = object : SupabaseUserManager.DatabaseCallback<UserData> {
                         override fun onSuccess(result: UserData) {
                             runOnUiThread {
-                                Toast.makeText(this@RegisterStep2Activity, "Registration completed successfully!", Toast.LENGTH_LONG).show()
+                                val companyName = companyInfo?.company_name ?: "Unknown Company"
+                                Toast.makeText(this@RegisterStep2Activity, "Registration completed successfully! Welcome to $companyName", Toast.LENGTH_LONG).show()
                                 
                                 // Navigate to main app
                                 val intent = Intent(this@RegisterStep2Activity, CentralActivity::class.java)

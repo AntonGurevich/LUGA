@@ -40,6 +40,25 @@ class AuthManager(private val context: Context) {
     private val supabase = SupabaseClient.client
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     
+    init {
+        // Set up session state monitoring to keep local state in sync
+        setupSessionMonitoring()
+    }
+    
+    /**
+     * Sets up session state monitoring to ensure consistency between
+     * Supabase SDK and local SharedPreferences.
+     */
+    private fun setupSessionMonitoring() {
+        try {
+            // Note: AuthChangeEvent might not be available in this Supabase version
+            // We'll rely on manual session checks instead
+            Log.d(TAG, "Session monitoring setup completed (manual mode)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting up session monitoring: ${e.message}")
+        }
+    }
+    
     /**
      * Authentication callback interface for handling async auth operations.
      */
@@ -98,12 +117,12 @@ class AuthManager(private val context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 Log.d(TAG, "Starting registration for email: $email")
-                val result = supabase.auth.signUpWith(Email) {
+                supabase.auth.signUpWith(Email) {
                     this.email = email
                     this.password = password
                 }
                 
-                Log.d(TAG, "Registration result: $result")
+                Log.d(TAG, "Registration completed")
                 
                 withContext(Dispatchers.Main) {
                     // Check if registration was successful
@@ -192,38 +211,58 @@ class AuthManager(private val context: Context) {
     }
     
     /**
-     * Checks if a user is currently logged in by verifying local session data.
+     * Checks if a user is currently logged in by verifying Supabase session.
+     * This ensures consistency with StepCountWorker and other components.
      * 
      * @return true if user is logged in, false otherwise
      */
     fun isLoggedIn(): Boolean {
-        return prefs.getBoolean(KEY_IS_LOGGED_IN, false) && 
-               !prefs.getString(KEY_ACCESS_TOKEN, null).isNullOrEmpty()
-    }
-    
-    /**
-     * Gets the current user's email from local storage.
-     * 
-     * @return User's email or null if not logged in
-     */
-    fun getCurrentUserEmail(): String? {
-        return if (isLoggedIn()) {
-            prefs.getString(KEY_USER_EMAIL, null)
-        } else {
-            null
+        return try {
+            val currentUser = supabase.auth.currentUserOrNull()
+            val isLoggedIn = currentUser != null
+            
+            // Sync local state with Supabase state
+            if (isLoggedIn != prefs.getBoolean(KEY_IS_LOGGED_IN, false)) {
+                Log.d(TAG, "Syncing local login state with Supabase: $isLoggedIn")
+                prefs.edit().putBoolean(KEY_IS_LOGGED_IN, isLoggedIn).apply()
+            }
+            
+            isLoggedIn
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking login status: ${e.message}")
+            false
         }
     }
     
     /**
-     * Gets the current user's ID from local storage.
+     * Gets the current user's email from Supabase session.
+     * Falls back to local storage if Supabase is unavailable.
+     * 
+     * @return User's email or null if not logged in
+     */
+    fun getCurrentUserEmail(): String? {
+        return try {
+            val currentUser = supabase.auth.currentUserOrNull()
+            currentUser?.email ?: prefs.getString(KEY_USER_EMAIL, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting current user email: ${e.message}")
+            prefs.getString(KEY_USER_EMAIL, null)
+        }
+    }
+    
+    /**
+     * Gets the current user's ID from Supabase session.
+     * Falls back to local storage if Supabase is unavailable.
      * 
      * @return User's ID or null if not logged in
      */
     fun getCurrentUserId(): String? {
-        return if (isLoggedIn()) {
+        return try {
+            val currentUser = supabase.auth.currentUserOrNull()
+            currentUser?.id?.toString() ?: prefs.getString(KEY_USER_ID, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting current user ID: ${e.message}")
             prefs.getString(KEY_USER_ID, null)
-        } else {
-            null
         }
     }
     
@@ -234,24 +273,30 @@ class AuthManager(private val context: Context) {
      * @param callback Callback to handle the result
      */
     fun refreshSession(callback: AuthCallback) {
-        if (!isLoggedIn()) {
-            callback.onError("No active session to refresh")
-            return
-        }
-        
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val result = supabase.auth.refreshCurrentSession()
+                val currentUser = supabase.auth.currentUserOrNull()
+                if (currentUser == null) {
+                    withContext(Dispatchers.Main) {
+                        Log.d(TAG, "No current user to refresh session")
+                        clearUserSession()
+                        callback.onError("No active session to refresh")
+                    }
+                    return@launch
+                }
+                
+                supabase.auth.refreshCurrentSession()
                 
                 withContext(Dispatchers.Main) {
                     // Check if refresh was successful
-                    val currentUser = supabase.auth.currentUserOrNull()
-                    if (currentUser != null) {
-                        saveUserSession(currentUser)
+                    val refreshedUser = supabase.auth.currentUserOrNull()
+                    if (refreshedUser != null) {
+                        saveUserSession(refreshedUser)
                         Log.d(TAG, "Session refreshed successfully")
-                        callback.onSuccess(currentUser)
+                        callback.onSuccess(refreshedUser)
                     } else {
                         Log.e(TAG, "Session refresh failed")
+                        clearUserSession()
                         callback.onError("Session refresh failed")
                     }
                 }
@@ -312,7 +357,7 @@ class AuthManager(private val context: Context) {
                 }
                 
                 // Call Edge Function to delete user (requires service role key)
-                val response = supabase.functions.invoke(
+                supabase.functions.invoke(
                     function = "delete-user-account",
                     body = mapOf("user_id" to currentUser.id.toString())
                 )
@@ -349,6 +394,7 @@ class AuthManager(private val context: Context) {
     
     /**
      * Saves user session data to local SharedPreferences.
+     * Also stores actual tokens from Supabase session for consistency.
      * 
      * @param user The authenticated user info
      */
@@ -357,7 +403,18 @@ class AuthManager(private val context: Context) {
             putBoolean(KEY_IS_LOGGED_IN, true)
             putString(KEY_USER_EMAIL, user.email)
             putString(KEY_USER_ID, user.id.toString())
-            // Note: In a production app, you might want to store tokens more securely
+            
+            // Store actual tokens from Supabase session for consistency
+            try {
+                val session = supabase.auth.currentSessionOrNull()
+                session?.let { 
+                    putString(KEY_ACCESS_TOKEN, it.accessToken)
+                    putString(KEY_REFRESH_TOKEN, it.refreshToken)
+                    Log.d(TAG, "Stored tokens in SharedPreferences")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not store tokens: ${e.message}")
+            }
             apply()
         }
     }

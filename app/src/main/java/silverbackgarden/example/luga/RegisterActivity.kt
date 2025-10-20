@@ -147,40 +147,100 @@ class RegisterActivity : AppCompatActivity() {
             
             Log.d("RegisterActivity", "Using connection code: $connectionCode (hasEmployerCode: $hasEmployerCode, employerCode: $employerCode)")
             
-            // Debug: Check what's actually in the database
-            supabaseUserManager.debugGetAllUsers(object : SupabaseUserManager.DatabaseCallback<List<UserData>> {
-                override fun onSuccess(users: List<UserData>) {
-                    Log.d("RegisterActivity", "DEBUG: Database contains ${users.size} users")
-                }
-                override fun onError(error: String) {
-                    Log.e("RegisterActivity", "DEBUG: Error getting users: $error")
-                }
-            })
-            
-            // First check if user already exists in Supabase database
-            supabaseUserManager.checkUserExists(email, connectionCode, object : SupabaseUserManager.DatabaseCallback<UserExistsResponse> {
-                override fun onSuccess(result: UserExistsResponse) {
-                    if (result.exists) {
-                        // User already exists
-                        registerButton.isEnabled = true
-                        registerButton.text = "Register"
-                        Toast.makeText(this@RegisterActivity, "User with this email already exists! Please try logging in instead.", Toast.LENGTH_LONG).show()
-                        return
-                    }
-                    
-                    // User doesn't exist, proceed with registration
-                    registerWithSupabase(email, password, name, surname, hasEmployerCode, employerCode, connectionCode)
-                }
-
-                override fun onError(error: String) {
+            // If user has employer code, validate it first
+            if (hasEmployerCode && employerCode.isNotEmpty()) {
+                val parsedCode = employerCode.toLongOrNull()
+                if (parsedCode == null) {
                     registerButton.isEnabled = true
                     registerButton.text = "Register"
-                    Toast.makeText(this@RegisterActivity, "Error checking user existence: $error", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@RegisterActivity, "Invalid employer code format. Please enter a valid number.", Toast.LENGTH_SHORT).show()
+                    return
                 }
-            })
+                
+                registerButton.text = "Validating Code..."
+                
+                // Validate employer code
+                supabaseUserManager.validateEmployerCode(parsedCode, object : SupabaseUserManager.DatabaseCallback<EmployerCodeValidationResult> {
+                    override fun onSuccess(result: EmployerCodeValidationResult) {
+                        if (!result.isValid) {
+                            // Validation failed
+                            registerButton.isEnabled = true
+                            registerButton.text = "Register"
+                            Toast.makeText(this@RegisterActivity, result.errorMessage ?: "Invalid employer code", Toast.LENGTH_LONG).show()
+                            return
+                        }
+                        
+                        // Validation passed, proceed with user existence check
+                        registerButton.text = "Registering..."
+                        checkUserExistsAndRegister(email, password, name, surname, hasEmployerCode, employerCode, parsedCode)
+                    }
+
+                    override fun onError(error: String) {
+                        registerButton.isEnabled = true
+                        registerButton.text = "Register"
+                        Toast.makeText(this@RegisterActivity, "Error validating employer code: $error", Toast.LENGTH_LONG).show()
+                    }
+                })
+            } else {
+                // No employer code, proceed directly
+                checkUserExistsAndRegister(email, password, name, surname, hasEmployerCode, employerCode, connectionCode)
+            }
         } else {
             Toast.makeText(this, "Invalid email or password", Toast.LENGTH_SHORT).show()
         }
+    }
+    
+    /**
+     * Checks if user exists and proceeds with registration if not.
+     * 
+     * @param email User's email address
+     * @param password User's password
+     * @param name User's first name
+     * @param surname User's last name
+     * @param hasEmployerCode Whether user has employer code
+     * @param employerCode Employer code if applicable
+     * @param connectionCode Connection code to use
+     */
+    private fun checkUserExistsAndRegister(
+        email: String, 
+        password: String, 
+        name: String, 
+        surname: String, 
+        hasEmployerCode: Boolean, 
+        employerCode: String, 
+        connectionCode: Long
+    ) {
+        // Debug: Check what's actually in the database
+        supabaseUserManager.debugGetAllUsers(object : SupabaseUserManager.DatabaseCallback<List<UserData>> {
+            override fun onSuccess(users: List<UserData>) {
+                Log.d("RegisterActivity", "DEBUG: Database contains ${users.size} users")
+            }
+            override fun onError(error: String) {
+                Log.e("RegisterActivity", "DEBUG: Error getting users: $error")
+            }
+        })
+        
+        // First check if user already exists in Supabase database
+        supabaseUserManager.checkUserExists(email, connectionCode, object : SupabaseUserManager.DatabaseCallback<UserExistsResponse> {
+            override fun onSuccess(result: UserExistsResponse) {
+                if (result.exists) {
+                    // User already exists
+                    registerButton.isEnabled = true
+                    registerButton.text = "Register"
+                    Toast.makeText(this@RegisterActivity, "User with this email already exists! Please try logging in instead.", Toast.LENGTH_LONG).show()
+                    return
+                }
+                
+                // User doesn't exist, proceed with registration
+                registerWithSupabase(email, password, name, surname, hasEmployerCode, employerCode, connectionCode)
+            }
+
+            override fun onError(error: String) {
+                registerButton.isEnabled = true
+                registerButton.text = "Register"
+                Toast.makeText(this@RegisterActivity, "Error checking user existence: $error", Toast.LENGTH_LONG).show()
+            }
+        })
     }
 
     /**

@@ -27,6 +27,7 @@ object SupabaseClient {
     /**
      * Singleton Supabase client instance.
      * Configured with Auth, Postgrest, Realtime, Storage, and Functions modules.
+     * Token refresh and session persistence are handled automatically by the SDK.
      */
     val client = createSupabaseClient(
         supabaseUrl = SUPABASE_URL,
