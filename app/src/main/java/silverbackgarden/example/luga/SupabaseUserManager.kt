@@ -524,7 +524,7 @@ class SupabaseUserManager {
     fun checkStepDataExists(userUid: String, date: String, callback: DatabaseCallback<Boolean>) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                Log.d(TAG, "Checking if step data exists for user: $userUid, date: $date")
+                // Log.d(TAG, "Checking if step data exists for user: $userUid, date: $date")
                 
                 val result = supabase.from(STEPS_TABLE)
                     .select()
@@ -536,7 +536,7 @@ class SupabaseUserManager {
                 
                 withContext(Dispatchers.Main) {
                     val exists = existingRecord != null
-                    Log.d(TAG, "Step data exists for $userUid on $date: $exists")
+                    // Log.d(TAG, "Step data exists for $userUid on $date: $exists")
                     callback.onSuccess(exists)
                 }
                 
@@ -560,7 +560,7 @@ class SupabaseUserManager {
     fun insertStepData(userUid: String, date: String, steps: Int, callback: DatabaseCallback<StepData>) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                Log.d(TAG, "Inserting step data for user: $userUid, date: $date, steps: $steps")
+                // Log.d(TAG, "Inserting step data for user: $userUid, date: $date, steps: $steps")
                 
                 val newStepData = CreateStepData(
                     uid = userUid,
@@ -650,7 +650,7 @@ class SupabaseUserManager {
                             insertedCount++
                         }
                     } else {
-                        Log.d(TAG, "Step data for ${report.date} is up to date (DB: ${existingRecord.steps} >= App: ${report.steps})")
+                        // Log.d(TAG, "Step data for ${report.date} is up to date (DB: ${existingRecord.steps} >= App: ${report.steps})")
                     }
                 }
                 
@@ -729,12 +729,12 @@ class SupabaseUserManager {
             when {
                 e.message?.contains("duplicate key") == true -> {
                     // Record already exists (race condition), this is expected
-                    Log.d(TAG, "Step data already exists for $date (race condition), continuing")
+                    // Log.d(TAG, "Step data already exists for $date (race condition), continuing")
                     false
                 }
                 e.message?.contains("violates unique constraint") == true -> {
                     // Same as above, just different error message format
-                    Log.d(TAG, "Step data already exists for $date (unique constraint), continuing")
+                    // Log.d(TAG, "Step data already exists for $date (unique constraint), continuing")
                     false
                 }
                 else -> {
@@ -797,6 +797,53 @@ class SupabaseUserManager {
         }
     }
     
+    /**
+     * Fetches token data for the current user and month from the token_record view.
+     * 
+     * @param userId The user's UID
+     * @param callback Callback to handle the token data result
+     */
+    fun fetchTokenData(userId: String, callback: DatabaseCallback<TokenRecord>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Fetching token data for user: $userId")
+                
+                // Get current month (first day of current month)
+                val currentMonth = java.time.LocalDate.now().withDayOfMonth(1).toString()
+                Log.d(TAG, "Current month: $currentMonth")
+                
+                // Fetch token data from the view
+                val allTokenRecords = supabase.from("token_record")
+                    .select()
+                    .decodeList<TokenRecord>()
+                
+                // Filter locally for the specific user and month
+                val tokenData = allTokenRecords.find { 
+                    it.uid == userId && it.month == currentMonth 
+                }
+                
+                Log.d(TAG, "Token data fetched successfully: $tokenData")
+                
+                if (tokenData != null) {
+                    withContext(Dispatchers.Main) {
+                        callback.onSuccess(tokenData)
+                    }
+                } else {
+                    Log.w(TAG, "No token data found for user $userId and month $currentMonth")
+                    withContext(Dispatchers.Main) {
+                        callback.onError("No token data found for current month")
+                    }
+                }
+                
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching token data: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    callback.onError("Failed to fetch token data: ${e.message}")
+                }
+            }
+        }
+    }
+
     /**
      * Validates an employer connection code against the company user registry.
      * Checks if the code exists, is effective, and is not already used by another user.
@@ -954,7 +1001,7 @@ class SupabaseUserManager {
                             insertedCount++
                         }
                     } else {
-                        Log.d(TAG, "Bike data for ${report.date} is up to date (DB: ${existingRecord.m_per_day}m >= App: ${newValue}m)")
+                        // Log.d(TAG, "Bike data for ${report.date} is up to date (DB: ${existingRecord.m_per_day}m >= App: ${newValue}m)")
                     }
                 }
                 
@@ -997,11 +1044,11 @@ class SupabaseUserManager {
         } catch (e: Exception) {
             when {
                 e.message?.contains("duplicate key") == true -> {
-                    Log.d(TAG, "Bike data already exists for $date (race condition), continuing")
+                    // Log.d(TAG, "Bike data already exists for $date (race condition), continuing")
                     false
                 }
                 e.message?.contains("violates unique constraint") == true -> {
-                    Log.d(TAG, "Bike data already exists for $date (unique constraint), continuing")
+                    // Log.d(TAG, "Bike data already exists for $date (unique constraint), continuing")
                     false
                 }
                 else -> {
@@ -1064,7 +1111,7 @@ class SupabaseUserManager {
                             insertedCount++
                         }
                     } else {
-                        Log.d(TAG, "Swim data for ${report.date} is up to date (DB: ${existingRecord.m_per_day}m >= App: ${newValue}m)")
+                        // Log.d(TAG, "Swim data for ${report.date} is up to date (DB: ${existingRecord.m_per_day}m >= App: ${newValue}m)")
                     }
                 }
                 
@@ -1173,11 +1220,11 @@ class SupabaseUserManager {
         } catch (e: Exception) {
             when {
                 e.message?.contains("duplicate key") == true -> {
-                    Log.d(TAG, "Swim data already exists for $date (race condition), continuing")
+                    // Log.d(TAG, "Swim data already exists for $date (race condition), continuing")
                     false
                 }
                 e.message?.contains("violates unique constraint") == true -> {
-                    Log.d(TAG, "Swim data already exists for $date (unique constraint), continuing")
+                    // Log.d(TAG, "Swim data already exists for $date (unique constraint), continuing")
                     false
                 }
                 else -> {
@@ -1207,12 +1254,12 @@ data class CompanyUserRegistry(
 /**
  * Data class for employer code validation result.
  */
-@Serializable
-data class EmployerCodeValidationResult(
-    val isValid: Boolean,
-    val errorMessage: String?,
-    val companyInfo: CompanyUserRegistry?
-)
+    @Serializable
+    data class EmployerCodeValidationResult(
+        val isValid: Boolean,
+        val errorMessage: String?,
+        val companyInfo: CompanyUserRegistry?
+    )
 
 /**
  * Data class for step data from Supabase raw_steps table.
@@ -1299,4 +1346,20 @@ data class CreateSwimData(
 data class SwimDataReport(
     val date: String,
     val meters: Float
+)
+
+/**
+ * Data class for token record from Supabase token_record view.
+ */
+@Serializable
+data class TokenRecord(
+    val uid: String,
+    val corpuid: String?,
+    val month: String,
+    val reimbursable_tokens: Double,
+    val nonreimbursable_tokens: Double,
+    val token_limit: Double?,
+    val swim_to_token: Double?,
+    val bike_to_token: Double?,
+    val steps_to_token: Double?
 )

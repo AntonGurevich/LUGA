@@ -35,6 +35,8 @@ import androidx.work.WorkManager
 // Local app imports
 import silverbackgarden.example.luga.StepDataViewActivity
 import silverbackgarden.example.luga.TokenCalculation
+import silverbackgarden.example.luga.SupabaseUserManager
+import silverbackgarden.example.luga.AuthManager
 
 // Google Sign-In and Fitness API imports
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -111,11 +113,17 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
      private var deviceSensorSteps: Int = 0                    // Steps detected by device sensors since app start
      private var lastGoogleFitUpdate: Long = 0                 // Last time Google Fit data was fetched
      
-     // Activity tracking variables
-     private var monthlyCyclingDistance: Float = 0f            // Total cycling distance this month
-     private var monthlySwimmingDistance: Float = 0f           // Total swimming distance this month
-     private var monthlyCyclingSessions: Int = 0               // Number of cycling sessions this month
-     private var monthlySwimmingSessions: Int = 0              // Number of swimming sessions this month
+    // Activity tracking variables
+    private var monthlyCyclingDistance: Float = 0f            // Total cycling distance this month
+    private var monthlySwimmingDistance: Float = 0f           // Total swimming distance this month
+    private var monthlyCyclingSessions: Int = 0               // Number of cycling sessions this month
+    private var monthlySwimmingSessions: Int = 0              // Number of swimming sessions this month
+
+    // Token data management
+    private val supabaseUserManager = SupabaseUserManager()
+    private lateinit var authManager: AuthManager
+    private var currentTokenData: TokenRecord? = null
+    private var serverDataLoaded = false
 
     companion object {
         // Request codes for permission and activity results
@@ -207,6 +215,9 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         val hasRequestedBefore = hasRequestedPermissionsBefore()
         Log.d(TAG, "onCreate - First run status: $firstRunStatus, Has requested before: $hasRequestedBefore")
         
+        // Initialize AuthManager with proper context
+        authManager = AuthManager(this)
+        
         // Initialize UI elements first before proceeding with other setup
         Log.d(TAG, "Calling initializeUI()")
         initializeUI()
@@ -230,6 +241,9 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         
         // Check monthly data validity after permissions are granted
         checkMonthlyDataValidity()
+        
+        // Load token data from server
+        loadTokenData()
     }
 
     /**
@@ -951,8 +965,8 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                     .putString("google_fit_month", SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date()))
                     .apply()
                 
-                // Update UI with monthly baseline
-                updateUIWithStepCount(currentStepCount)
+                // Update UI with monthly baseline - DISABLED to prevent overriding server data
+                // updateUIWithStepCount(currentStepCount)
                 
                                  // Now setup device sensors for real-time updates
                  setupDeviceSensors()
@@ -1083,9 +1097,175 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                     Log.d(TAG, "Restoring monthly baseline from preferences: $monthlyBaseline steps")
                     googleFitMonthlyBaseline = monthlyBaseline
                     currentStepCount = monthlyBaseline + deviceSensorSteps
-                    updateUIWithStepCount(currentStepCount)
+                    // updateUIWithStepCount(currentStepCount) // DISABLED to prevent overriding server data
                 }
             }
+        }
+    }
+    
+    /**
+     * Loads token data from the server for the current user and month.
+     * Updates the UI with token information including reimbursable/non-reimbursable tokens,
+     * token limits, and progress towards next tokens for steps, swim, and bike activities.
+     */
+    private fun loadTokenData() {
+        Log.d(TAG, "Loading token data from server")
+        
+        // Check if user is logged in
+        if (!authManager.isLoggedIn()) {
+            Log.w(TAG, "User not logged in, skipping token data load")
+            return
+        }
+        
+        // Get current user ID
+        val userId = authManager.getCurrentUserId()
+        if (userId.isNullOrEmpty()) {
+            Log.w(TAG, "No user ID available, skipping token data load")
+            return
+        }
+        
+        Log.d(TAG, "Fetching token data for user: $userId")
+        
+        // Fetch token data from Supabase
+        supabaseUserManager.fetchTokenData(userId, object : SupabaseUserManager.DatabaseCallback<TokenRecord> {
+            override fun onSuccess(result: TokenRecord) {
+                Log.d(TAG, "Token data loaded successfully: $result")
+                currentTokenData = result
+                updateUIWithTokenData(result)
+            }
+            
+            override fun onError(error: String) {
+                Log.e(TAG, "Failed to load token data: $error")
+                showTokenDataError(error)
+            }
+        })
+    }
+    
+    /**
+     * Refreshes token data from the server.
+     * This can be called manually to update token information.
+     */
+    fun refreshTokenData() {
+        Log.d(TAG, "Manually refreshing token data")
+        loadTokenData()
+    }
+    
+    /**
+     * Shows error message when token data cannot be loaded from server.
+     * 
+     * @param error The error message from the server
+     */
+    private fun showTokenDataError(error: String) {
+        Log.d(TAG, "Showing token data error: $error")
+        
+        // Show error message to user
+        Toast.makeText(this, "Unable to load token data: $error", Toast.LENGTH_LONG).show()
+        
+        // Reset UI to show error state
+        tEToken?.text = "Error"
+        tNEToken?.text = "Error"
+        tSteps?.text = "Error/10000"
+        tSwimming?.text = "Error/2000m"
+        tCycling?.text = "Error/12000m"
+        
+        // Reset progress bars to empty state with correct maximums
+        eTokenProgBar?.apply {
+            progress = 0f
+            progressMax = 1f
+        }
+        neTokenProgBar?.apply {
+            progress = 0f
+            progressMax = 1f
+        }
+        stepsProgBar?.apply {
+            progress = 0f
+            progressMax = 10000f
+        }
+        swimmingProgBar?.apply {
+            progress = 0f
+            progressMax = 2000f
+        }
+        cyclingProgBar?.apply {
+            progress = 0f
+            progressMax = 12000f
+        }
+        
+        // Mark that server data failed to load
+        serverDataLoaded = false
+        currentTokenData = null
+        Log.d(TAG, "❌ SERVER DATA FLAG RESET: serverDataLoaded = false")
+        
+        Log.d(TAG, "UI reset to error state")
+    }
+    
+    /**
+     * Updates the UI with token data from the server.
+     * 
+     * @param tokenData The token data received from the server
+     */
+    private fun updateUIWithTokenData(tokenData: TokenRecord) {
+        Log.d(TAG, "Updating UI with token data: $tokenData")
+        
+        // Log detailed token data for debugging
+        Log.d(TAG, "Token data details - reimbursable: ${tokenData.reimbursable_tokens}, nonreimbursable: ${tokenData.nonreimbursable_tokens}")
+        Log.d(TAG, "Token data details - token_limit: ${tokenData.token_limit}, steps: ${tokenData.steps_to_token}, swim: ${tokenData.swim_to_token}, bike: ${tokenData.bike_to_token}")
+        
+        try {
+            // Update reimbursable tokens (exchangeable tokens)
+            tEToken?.text = tokenData.reimbursable_tokens.toInt().toString()
+            eTokenProgBar?.apply {
+                progress = tokenData.reimbursable_tokens.toFloat()
+                progressMax = (tokenData.token_limit ?: 30.0).toFloat()
+            }
+            
+            // Update non-reimbursable tokens
+            tNEToken?.text = tokenData.nonreimbursable_tokens.toInt().toString()
+            neTokenProgBar?.apply {
+                progress = tokenData.nonreimbursable_tokens.toFloat()
+                progressMax = (tokenData.token_limit ?: 30.0).toFloat()
+            }
+            
+            // Update progress towards next tokens
+            // Note: Server data represents progress towards next token (remainder of division)
+            // - steps_to_token: steps progress towards next token (0-10000)
+            // - swim_to_token: swimming meters progress towards next token (0-2000)
+            // - bike_to_token: cycling meters progress towards next token (0-12000)
+            val swimProgress = (tokenData.swim_to_token ?: 0.0).toFloat()
+            val bikeProgress = (tokenData.bike_to_token ?: 0.0).toFloat()
+            val stepsProgress = (tokenData.steps_to_token ?: 0.0).toFloat()
+            
+            // Update swimming progress bar and text (max 2000m)
+            swimmingProgBar?.apply {
+                progress = swimProgress
+                progressMax = 2000f
+            }
+            tSwimming?.text = "${swimProgress.toInt()}m/2000m"
+            
+            // Update cycling progress bar and text (max 12000m)
+            cyclingProgBar?.apply {
+                progress = bikeProgress
+                progressMax = 12000f
+            }
+            tCycling?.text = "${bikeProgress.toInt()}m/12000m"
+            
+            // Update steps progress bar and text (max 10000 steps)
+            stepsProgBar?.apply {
+                progress = stepsProgress
+                progressMax = 10000f
+            }
+            tSteps?.text = "${stepsProgress.toInt()}/10000"
+            
+            Log.d(TAG, "Server data applied - Steps: ${stepsProgress.toInt()}, Swim: ${swimProgress.toInt()}m, Bike: ${bikeProgress.toInt()}m")
+            
+            // Mark that server data has been loaded to prevent local data from overriding
+            serverDataLoaded = true
+            Log.d(TAG, "✅ SERVER DATA FLAG SET: serverDataLoaded = true")
+            
+            Log.d(TAG, "UI updated with token data successfully")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating UI with token data: ${e.message}", e)
+            Toast.makeText(this, "Error updating token display", Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -1203,9 +1383,9 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                  
                  Log.d(TAG, "Activity data fetched - Cycling: ${monthlyCyclingDistance}m (${monthlyCyclingSessions} sessions), Swimming: ${monthlySwimmingDistance}m (${monthlySwimmingSessions} sessions)")
                  
-                 // Update UI with new activity data
-                 updateActivityProgress()
-                 updateTokenDisplay()
+                // Update UI with new activity data - DISABLED to prevent overriding server data
+                // updateActivityProgress()
+                // updateTokenDisplay()
                  
              }
              .addOnFailureListener { e ->
@@ -1503,7 +1683,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
             Toast.makeText(this, "Permissions revoked. Step counting disabled.", Toast.LENGTH_LONG).show()
             // Clear step data
             currentStepCount = 0
-            updateUIWithStepCount(0)
+            // updateUIWithStepCount(0) // DISABLED to prevent overriding server data
         }
     }
 
@@ -1524,6 +1704,9 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         // Handle any permission changes
         Log.d(TAG, "Calling handlePermissionChange()")
         handlePermissionChange()
+        
+        // Refresh token data when returning to the activity
+        loadTokenData()
         
         // Update permission indicators when resuming
         updatePermissionIndicators()
@@ -1636,7 +1819,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                     Log.d(TAG, "🔴 STEP_COUNTER EVENT - Device steps: $newSteps, Monthly total: $currentStepCount")
                     
                     runOnUiThread {
-                        updateStepCountDisplay()
+                        // updateStepCountDisplay() // DISABLED to prevent overriding server data
                     }
                 }
             } else {
@@ -1655,7 +1838,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                 
                 if (currentStepCount != previousStepCount) {
                     runOnUiThread {
-                        updateStepCountDisplay()
+                        // updateStepCountDisplay() // DISABLED to prevent overriding server data
                     }
                 }
             }
@@ -1680,13 +1863,13 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                 Log.d(TAG, "🟢 STEP_DETECTOR EVENT - Step detected! Monthly total: $currentStepCount")
                 
                 runOnUiThread {
-                    updateStepCountDisplay()
+                    // updateStepCountDisplay() // DISABLED to prevent overriding server data
                 }
             } else {
                 // Fallback to original logic
                 val previousStepCount = currentStepCount
                 currentStepCount++
-                updateUIWithStepCount(currentStepCount)
+                // updateUIWithStepCount(currentStepCount) // DISABLED to prevent overriding server data
             }
         } else {
             Log.d(TAG, "🟡 STEP_DETECTOR EVENT - Ignored value: ${event.values[0]} (not 1.0)")
@@ -1697,7 +1880,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         // Simply update the UI with current step count
         // The logic for data source selection is handled by setupGoogleFitAndSensors
         Log.d(TAG, "readStepCount called - currentStepCount: $currentStepCount")
-        updateUIWithStepCount(currentStepCount)
+        // updateUIWithStepCount(currentStepCount) // DISABLED to prevent overriding server data
     }
     
     private fun readStepCountFromGoogleFit() {
@@ -1745,7 +1928,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                     Log.d(TAG, "Total steps from Google Fit: $total")
                     total
                 }
-                updateUIWithStepCount(totalSteps)
+                // updateUIWithStepCount(totalSteps) // DISABLED to prevent overriding server data
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Failed to read step count from Google Fit", e)
@@ -1765,7 +1948,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
             .putString(KEY_LAST_STEP_RESET_DATE, today)
             .apply()
         
-        updateUIWithStepCount(0)
+        // updateUIWithStepCount(0) // DISABLED to prevent overriding server data
         Log.d(TAG, "Step counter reset")
     }
     
@@ -1874,28 +2057,11 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
      */
     private fun updateUIWithStepCount(stepCount: Int) {
         Log.d(TAG, "=== updateUIWithStepCount called with stepCount: $stepCount ===")
+        Log.d(TAG, "🚫 DEVICE DATA UI UPDATE DISABLED: Preventing local data from overriding server data")
         
-        val dataSource = getStepDataSource()
-        Log.d(TAG, "updateUIWithStepCount - dataSource: $dataSource")
-        
-        Toast.makeText(this, "Steps: $stepCount (via $dataSource)", Toast.LENGTH_SHORT).show()
-
-        val tokenCalculation = calculateTokens(stepCount)
-        Log.d(TAG, "updateUIWithStepCount - tokenCalculation: $tokenCalculation")
-
-        stepsProgBar?.progressMax = DAILY_STEP_GOAL.toFloat()
-        eTokenProgBar?.progressMax = MONTHLY_TOKEN_EXCHANGE_LIMIT.toFloat()
-        neTokenProgBar?.progressMax = (60 - MONTHLY_TOKEN_EXCHANGE_LIMIT).toFloat()
-        
-        stepsProgBar?.setProgressWithAnimation(tokenCalculation.steps.toFloat(), 1000)
-        eTokenProgBar?.setProgressWithAnimation(tokenCalculation.exchangeableTokens.toFloat(), 1000)
-        neTokenProgBar?.setProgressWithAnimation(tokenCalculation.nonExchangeableTokens.toFloat(), 1000)
-        
-        tSteps?.text = "${tokenCalculation.steps}/$DAILY_STEP_GOAL"
-        tEToken?.text = "${tokenCalculation.exchangeableTokens}/$MONTHLY_TOKEN_EXCHANGE_LIMIT"
-        tNEToken?.text = "${tokenCalculation.nonExchangeableTokens}/${60 - MONTHLY_TOKEN_EXCHANGE_LIMIT}"
-        
-        Log.d(TAG, "updateUIWithStepCount - UI updated successfully")
+        // Always return early to prevent device data from overriding server data
+        // Server data should be the single source of truth for UI display
+        return
     }
 
     /**
