@@ -14,13 +14,11 @@ import io.github.jan.supabase.storage.Storage
  * modules configured for authentication, database operations, realtime subscriptions,
  * and file storage.
  * 
- * IMPORTANT: Replace the placeholder values with your actual Supabase project credentials:
- * - SUPABASE_URL: Your project URL from Supabase dashboard
- * - SUPABASE_ANON_KEY: Your anonymous public key from Supabase dashboard
+ * TODO: Implement secure credential management using BuildConfig
  */
 object SupabaseClient {
     
-    // Supabase project credentials
+    // Temporary hardcoded values - will be replaced with secure BuildConfig approach
     private const val SUPABASE_URL = "https://ipdxcbuvvlshkzgycrer.supabase.co"
     private const val SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwZHhjYnV2dmxzaGt6Z3ljcmVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwOTQzMjcsImV4cCI6MjA3MzY3MDMyN30.-PjdKIAWllqNZpVcgju9zI7-M2M8arkwI4b3SZrOtbs"
     
