@@ -14,13 +14,16 @@ import io.github.jan.supabase.storage.Storage
  * modules configured for authentication, database operations, realtime subscriptions,
  * and file storage.
  * 
- * TODO: Implement secure credential management using BuildConfig
+ * Credentials are securely loaded from BuildConfig, which reads from local.properties
+ * to avoid exposing API keys in source code.
  */
 object SupabaseClient {
     
-    // Temporary hardcoded values - will be replaced with secure BuildConfig approach
-    private const val SUPABASE_URL = "https://ipdxcbuvvlshkzgycrer.supabase.co"
-    private const val SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlwZHhjYnV2dmxzaGt6Z3ljcmVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwOTQzMjcsImV4cCI6MjA3MzY3MDMyN30.-PjdKIAWllqNZpVcgju9zI7-M2M8arkwI4b3SZrOtbs"
+    init {
+        // Debug: Log the BuildConfig values to verify they're being read correctly
+        android.util.Log.d("SupabaseClient", "SUPABASE_URL: ${BuildConfig.SUPABASE_URL}")
+        android.util.Log.d("SupabaseClient", "SUPABASE_ANON_KEY: ${BuildConfig.SUPABASE_ANON_KEY.take(20)}...")
+    }
     
     /**
      * Singleton Supabase client instance.
@@ -28,8 +31,8 @@ object SupabaseClient {
      * Token refresh and session persistence are handled automatically by the SDK.
      */
     val client = createSupabaseClient(
-        supabaseUrl = SUPABASE_URL,
-        supabaseKey = SUPABASE_ANON_KEY
+        supabaseUrl = BuildConfig.SUPABASE_URL,
+        supabaseKey = BuildConfig.SUPABASE_ANON_KEY
     ) {
         install(Auth)
         install(Postgrest)
