@@ -14,10 +14,6 @@ import androidx.appcompat.app.AppCompatActivity
 import android.content.SharedPreferences
 import io.github.jan.supabase.gotrue.user.UserInfo
 import kotlinx.coroutines.*
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Body
-import retrofit2.http.POST
 import kotlin.Result
 import silverbackgarden.example.luga.UserData
 import silverbackgarden.example.luga.UserExistsResponse
@@ -384,122 +380,6 @@ class RegisterActivity : AppCompatActivity() {
      */
     private fun isPasswordValid(password: String) = password.isNotEmpty()
 
-    /**
-     * Registers user via REST API to store additional user data in your database.
-     * This is called after successful Supabase Auth registration.
-     * 
-     * @param email The user's email address
-     * @param password The user's password
-     * @param name The user's first name
-     * @param surname The user's last name
-     */
-    private fun registerUserViaAPI(email: String, password: String, name: String, surname: String) {
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                val result = registerUserViaAPICall(email, password, name, surname)
-                if (result.isSuccess) {
-                    Toast.makeText(this@RegisterActivity, "User registered successfully!", Toast.LENGTH_LONG).show()
-                    // Navigate directly to main app since user is already authenticated
-                    val intent = Intent(this@RegisterActivity, CentralActivity::class.java)
-                    startActivity(intent)
-                    finish()
-                } else {
-                    Toast.makeText(this@RegisterActivity, "Registration failed: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
-                }
-            } catch (e: Exception) {
-                Toast.makeText(this@RegisterActivity, "Registration error: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    /**
-     * Makes the actual API call to register the user in your database.
-     * Uses the same Retrofit pattern as StepCountWorker for consistency.
-     * 
-     * @param email The user's email address
-     * @param password The user's password
-     * @param name The user's first name
-     * @param surname The user's last name
-     * @return Result<RegistrationResponse> indicating success or failure
-     */
-    private suspend fun registerUserViaAPICall(email: String, password: String, name: String, surname: String): Result<RegistrationResponse> {
-        return withContext(Dispatchers.IO) {
-            try {
-                // Build Retrofit instance (same pattern as StepCountWorker)
-                val retrofit = Retrofit.Builder()
-                    .baseUrl("http://20.0.164.108:3000/")  // Same server as step data
-                    .addConverterFactory(GsonConverterFactory.create())
-                    .build()
-                
-                val api = retrofit.create(AuthApi::class.java)
-                
-                // Create user registration data
-                val userData = UserRegistrationData(
-                    email = email,
-                    password = password,  // TODO: Hash this on server side
-                    name = name,
-                    surname = surname,
-                    employerCode = if (codeSwitch.isChecked) employerCodeEditText.text.toString() else null,
-                    hasEmployerCode = codeSwitch.isChecked
-                )
-                
-                // Make API call
-                val response = api.registerUser(userData)
-                
-                if (response.isSuccessful) {
-                    Result.success(response.body()!!)
-                } else {
-                    Result.failure(Exception("Registration failed: ${response.code()} - ${response.errorBody()?.string()}"))
-                }
-                
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
-        }
-    }
-    
-    /**
-     * Retrofit interface for user authentication API.
-     * Defines the HTTP endpoint and request structure for user registration.
-     */
-    interface AuthApi {
-        @POST("/api/auth/register")
-        suspend fun registerUser(@Body userData: UserRegistrationData): retrofit2.Response<RegistrationResponse>
-    }
-    
-    /**
-     * Data class representing user registration data for API communication.
-     * Contains all necessary user information for registration.
-     * 
-     * @property email User's email address
-     * @property password User's password (should be hashed on server side)
-     * @property name User's first name
-     * @property surname User's last name
-     * @property employerCode Optional employer code for corporate users
-     * @property hasEmployerCode Whether the user has an employer code
-     */
-    data class UserRegistrationData(
-        val email: String,
-        val password: String,
-        val name: String,
-        val surname: String,
-        val employerCode: String?,
-        val hasEmployerCode: Boolean
-    )
-    
-    /**
-     * Data class representing the API response for user registration.
-     * Contains the result of the registration attempt.
-     * 
-     * @property success Whether the registration was successful
-     * @property message Human-readable message about the result
-     * @property userId Generated user ID if registration successful
-     */
-    data class RegistrationResponse(
-        val success: Boolean,
-        val message: String,
-        val userId: String?
-    )
     
     /**
      * Shows a password validation dialog with specific error message.
