@@ -1,13 +1,15 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older that API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Minimal backup rules - exclude all data since meaningful data is stored in Supabase
+   All user data syncs automatically when user logs in on new device
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Exclude all SharedPreferences (auth tokens, app state, user prefs) -->
+    <exclude domain="sharedpref" path="."/>
+    
+    <!-- Exclude all files (cache, logs, temporary data) -->
+    <exclude domain="file" path="."/>
+    
+    <!-- Exclude all databases (if any local databases exist) -->
+    <exclude domain="database" path="."/>
 </full-backup-content>
