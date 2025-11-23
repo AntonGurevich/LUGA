@@ -12,6 +12,8 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
@@ -37,6 +39,7 @@ import silverbackgarden.example.luga.StepDataViewActivity
 import silverbackgarden.example.luga.TokenCalculation
 import silverbackgarden.example.luga.SupabaseUserManager
 import silverbackgarden.example.luga.AuthManager
+import io.github.jan.supabase.gotrue.user.UserInfo
 
 // Google Sign-In and Fitness API imports
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -316,15 +319,27 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
             .setPositiveButton("Yes") { _, _ ->
                 Log.d(TAG, "User confirmed logout")
                 
-                // Clear any stored session data
-                val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                prefs.edit().clear().apply()
-                
-                // Navigate to login screen
-                val intent = Intent(this, LoginActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                startActivity(intent)
-                finish()
+                // Sign out from Supabase and clear local session
+                authManager.signOut(object : AuthManager.AuthCallback {
+                    override fun onSuccess(user: UserInfo?) {
+                        Log.d(TAG, "Logout successful, navigating to login screen")
+                        // Navigate to login screen
+                        val intent = Intent(this@CentralActivity, LoginActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                        finish()
+                    }
+                    
+                    override fun onError(error: String) {
+                        Log.e(TAG, "Logout error: $error")
+                        // Even if sign out fails, navigate to login screen
+                        // The session will be checked on login screen
+                        val intent = Intent(this@CentralActivity, LoginActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        startActivity(intent)
+                        finish()
+                    }
+                })
             }
             .setNegativeButton("Cancel") { dialog, _ ->
                 Log.d(TAG, "Logout cancelled by user")
@@ -336,6 +351,19 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
     override fun onStart() {
         super.onStart()
         Log.d(TAG, "=== onStart called ===")
+        
+        // Check if token data needs refresh (after data sync) - check here too in case activity is already running
+        val prefs = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+        val needsRefresh = prefs.getBoolean("token_data_needs_refresh", false)
+        if (needsRefresh) {
+            Log.d(TAG, "Token data refresh flag detected in onStart - refreshing token data after data sync")
+            prefs.edit().putBoolean("token_data_needs_refresh", false).apply()
+            // Small delay to ensure server has processed the new data and token calculations are updated
+            Handler(Looper.getMainLooper()).postDelayed({
+                Log.d(TAG, "Refreshing token data after data sync completion (from onStart)")
+                loadTokenData()
+            }, 1500) // 1.5 second delay to allow server to process new data and recalculate tokens
+        }
     }
     
     /**
@@ -1152,30 +1180,36 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
     
     /**
      * Shows error message when token data cannot be loaded from server.
+     * This is only called for actual errors (network issues, etc.), not for missing data.
+     * Missing data (new users) is handled by returning a default TokenRecord with zeros.
      * 
      * @param error The error message from the server
      */
     private fun showTokenDataError(error: String) {
-        Log.d(TAG, "Showing token data error: $error")
+        Log.e(TAG, "Token data fetch error: $error")
         
-        // Show error message to user
-        Toast.makeText(this, "Unable to load token data: $error", Toast.LENGTH_LONG).show()
+        // Only show toast for actual errors (not for missing data which is normal for new users)
+        // Check if it's a real error vs just missing data
+        if (!error.contains("No token data", ignoreCase = true)) {
+            Toast.makeText(this, "Unable to load token data: $error", Toast.LENGTH_LONG).show()
+        }
         
-        // Reset UI to show error state
-        tEToken?.text = "Error"
-        tNEToken?.text = "Error"
-        tSteps?.text = "Error/10000"
-        tSwimming?.text = "Error/2000m"
-        tCycling?.text = "Error/12000m"
+        // Show default/empty state instead of "Error" - this is more user-friendly
+        // New users will see zeros until they sync data
+        tEToken?.text = "0"
+        tNEToken?.text = "0"
+        tSteps?.text = "0/10000"
+        tSwimming?.text = "0m/2000m"
+        tCycling?.text = "0m/12000m"
         
         // Reset progress bars to empty state with correct maximums
         eTokenProgBar?.apply {
             progress = 0f
-            progressMax = 1f
+            progressMax = 30f // Default token limit
         }
         neTokenProgBar?.apply {
             progress = 0f
-            progressMax = 1f
+            progressMax = 30f // Default token limit
         }
         stepsProgBar?.apply {
             progress = 0f
@@ -1195,7 +1229,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         currentTokenData = null
         Log.d(TAG, "❌ SERVER DATA FLAG RESET: serverDataLoaded = false")
         
-        Log.d(TAG, "UI reset to error state")
+        Log.d(TAG, "UI reset to default empty state")
     }
     
     /**
@@ -1705,8 +1739,21 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         Log.d(TAG, "Calling handlePermissionChange()")
         handlePermissionChange()
         
-        // Refresh token data when returning to the activity
-        loadTokenData()
+        // Check if token data needs refresh (after data sync)
+        val prefs = getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+        val needsRefresh = prefs.getBoolean("token_data_needs_refresh", false)
+        if (needsRefresh) {
+            Log.d(TAG, "Token data refresh flag detected - refreshing token data after data sync")
+            prefs.edit().putBoolean("token_data_needs_refresh", false).apply()
+            // Small delay to ensure server has processed the new data and token calculations are updated
+            Handler(Looper.getMainLooper()).postDelayed({
+                Log.d(TAG, "Refreshing token data after data sync completion")
+                loadTokenData()
+            }, 1500) // 1.5 second delay to allow server to process new data and recalculate tokens
+        } else {
+            // Normal refresh when returning to activity
+            loadTokenData()
+        }
         
         // Update permission indicators when resuming
         updatePermissionIndicators()
