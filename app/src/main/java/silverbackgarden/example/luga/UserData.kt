@@ -25,11 +25,12 @@ data class UserData(
 /**
  * Data class for creating a new user in the users_registry table.
  * 
- * This class is used when inserting new users. The uid field is auto-generated
- * by Supabase using auth.uid().
+ * This class is used when inserting new users. The uid field should be set
+ * to the Supabase Auth user ID to ensure the foreign key constraint is satisfied.
  */
 @Serializable
 data class CreateUserData(
+    val uid: String? = null,  // User ID from Supabase Auth (required for foreign key)
     val email: String,
     val connection_code: Long,
     val registration_date: String

@@ -4,97 +4,146 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:layout_marginRight="15dp"
-    android:layout_marginLeft="15dp"
-    >
+    android:padding="24dp"
+    android:gravity="center_horizontal"
+    android:background="@color/white">
+
+    <!-- Acteamity logo on top center (like login view) -->
+    <ImageView
+        android:id="@+id/profile_logo"
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginBottom="24dp"
+        android:contentDescription="@string/app_name"
+        app:srcCompat="@drawable/acteamity_logo1" />
+
+    <!-- Profile information: black text, classic serif font -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="24dp">
+
+        <TextView
+            android:id="@+id/email_textview"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="18sp"
+            android:textColor="@color/black"
+            android:fontFamily="serif"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/employer_textview"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="18sp"
+            android:textColor="@color/black"
+            android:fontFamily="serif"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Name with small edit button -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_weight="1">
-            <TextView
-                android:id="@+id/email_textview"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
-                android:text="Email"
-                android:textSize="18dp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/employer_textview"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Employer"
-                android:textSize="18dp"
-                android:textStyle="bold" />
-
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
             <TextView
                 android:id="@+id/name_textview"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_below="@id/employer_textview"
-                android:text="Name"
+                android:layout_weight="1"
+                android:text=""
                 android:textSize="18sp"
-                android:textStyle="bold" />
-
+                android:textColor="@color/black"
+                android:fontFamily="serif" />
             <TextView
-                android:id="@+id/surname_textview"
+                android:id="@+id/edit_name_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Surname"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:layout_below="@id/name_textview"/>
-
+                android:text="✎"
+                android:textSize="16sp"
+                android:textColor="#666666"
+                android:padding="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground" />
         </LinearLayout>
 
-        <ImageView
-            android:id="@+id/imageView2"
-            android:layout_width="204dp"
-            android:layout_height="match_parent"
-            android:layout_marginTop="30dp"
-            android:layout_weight="1"
-            app:srcCompat="@drawable/acteamity_logo1" />
+        <!-- Surname with small edit button -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/surname_textview"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text=""
+                android:textSize="18sp"
+                android:textColor="@color/black"
+                android:fontFamily="serif" />
+            <TextView
+                android:id="@+id/edit_surname_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✎"
+                android:textSize="16sp"
+                android:textColor="#666666"
+                android:padding="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground" />
+        </LinearLayout>
     </LinearLayout>
 
-
-
+    <!-- Buttons -->
     <LinearLayout
-        android:layout_width="200dp"
-        android:layout_height="match_parent"
-        android:layout_marginTop="16dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_gravity="center"
         android:gravity="center_horizontal">
 
         <Button
-            android:id="@+id/edit_profile_button"
+            android:id="@+id/change_password_button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Edit Profile"
-            android:layout_below="@id/surname_textview" />
+            android:text="Change Password"
+            android:layout_marginBottom="12dp" />
 
+        <Button
+            android:id="@+id/change_employer_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Change Employer"
+            android:layout_marginBottom="12dp" />
 
         <Button
             android:id="@+id/close_button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_below="@id/edit_profile_button"
-            android:text="Close" />
-
-
-        <Button
-            android:id="@+id/delete_account_button"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/close_button"
-            android:backgroundTint="@color/purple_700"
-            android:text="Delete Account" />
-
+            android:text="Close"
+            android:layout_marginBottom="24dp" />
     </LinearLayout>
 
+    <!-- Small link-style delete at bottom (like unsubscribe in emails) -->
+    <TextView
+        android:id="@+id/delete_account_link"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
+        android:text="@string/delete_my_data"
+        android:textSize="12sp"
+        android:textColor="#888888"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?attr/selectableItemBackground"
+        android:padding="8dp" />
 </LinearLayout>

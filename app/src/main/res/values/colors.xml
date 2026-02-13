@@ -11,5 +11,6 @@
     <color name="beaver">#FFA18276</color>
     <color name="background_teal">#FFD6FFFF</color>
     <color name="luga_blue">#FF40A6FB</color>
+    <color name="destructive">#FFB00020</color>
 
 </resources>

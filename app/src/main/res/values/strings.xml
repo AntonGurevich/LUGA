@@ -1,6 +1,16 @@
 <resources>
     <string name="app_name">Acteamity</string>
-    
+
+    <!-- GDPR account deletion -->
+    <string name="delete_my_data">Delete my data</string>
+    <string name="cancel_deletion">Cancel deletion</string>
+    <string name="delete_account_confirm_message">Are you sure you want to delete your account? All your data will be permanently removed, including your login. This cannot be undone.</string>
+    <string name="delete_account_confirm_title">Delete account</string>
+    <string name="delete_type_confirm_message">Type DELETE below to confirm permanent account deletion.</string>
+    <string name="delete_type_confirm_title">Confirm deletion</string>
+    <string name="delete_confirm_button">Delete my account</string>
+    <string name="delete_must_type_delete">You must type DELETE to confirm.</string>
+
     <!-- Permission descriptions for Google Play Store compliance -->
     <string name="permission_activity_recognition_desc">Required to track your daily step count and physical activity for fitness token calculation</string>
     <string name="permission_body_sensors_desc">Required to access fitness sensors for accurate activity tracking and step counting</string>

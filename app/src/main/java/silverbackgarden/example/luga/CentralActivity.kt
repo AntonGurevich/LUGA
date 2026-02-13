@@ -227,10 +227,11 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
         
                  // Validate that critical UI elements were successfully initialized
          // If any are missing, show error and finish the activity to prevent crashes
+         // Note: neTokenProgBar and tNEToken are optional (non-exchangeable token circle was removed)
          if (stepsProgBar == null || cyclingProgBar == null || swimmingProgBar == null ||
-             eTokenProgBar == null || neTokenProgBar == null ||
+             eTokenProgBar == null ||
              tSteps == null || tCycling == null || tSwimming == null ||
-             tEToken == null || tNEToken == null) {
+             tEToken == null) {
              Log.e(TAG, "Critical UI elements failed to initialize - showing error and finishing activity")
              Toast.makeText(this, "Error: Required UI elements not found. Please check the app layout.", Toast.LENGTH_LONG).show()
              finish()
@@ -400,12 +401,7 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                 Log.e(TAG, "circularProgressBarExTokens not found in layout")
                 return
             }
-            
-            neTokenProgBar = findViewById(R.id.circularProgressBarNonExTokens)
-            if (neTokenProgBar == null) {
-                Log.e(TAG, "circularProgressBarNonExTokens not found in layout")
-                return
-            }
+            // neTokenProgBar / circularProgressBarNonExTokens removed from layout; stay null, all usages are neTokenProgBar?.
 
             // Initialize text views with null checks to prevent crashes
             // These display the numerical values for steps, cycling, swimming, and tokens
@@ -432,11 +428,10 @@ class CentralActivity : AppCompatActivity(), SensorEventListener {
                 Log.e(TAG, "tvExTokensBal not found in layout")
                 return
             }
-            
+
             tNEToken = findViewById(R.id.tvNonExTokensBal)
             if (tNEToken == null) {
-                Log.e(TAG, "tvNonExTokensBal not found in layout")
-                return
+                Log.w(TAG, "tvNonExTokensBal not found in layout (non-ex block optional)")
             }
 
             // Initialize permission indicators with null checks

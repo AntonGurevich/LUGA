@@ -636,6 +636,48 @@ class AuthManager(private val context: Context) {
     }
     
     /**
+     * Requests full GDPR account deletion via the JWT-based Edge Function.
+     * The backend resolves the user from the session JWT and deletes all app data + Auth user.
+     * Only clears local session on success; on failure the user can retry.
+     *
+     * @param callback Callback to handle the result
+     */
+    fun requestGdprAccountDeletion(callback: AuthCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val currentUser = supabase.auth.currentUserOrNull()
+                if (currentUser == null) {
+                    withContext(Dispatchers.Main) {
+                        callback.onError("No active session. Please sign in again.")
+                    }
+                    return@launch
+                }
+                Log.d(TAG, "Requesting GDPR account deletion (JWT-based)")
+                supabase.functions.invoke(
+                    function = "delete-account",
+                    body = emptyMap<String, String>()
+                )
+                // Sign out locally so the SDK clears in-memory session (may fail on server since user is deleted)
+                try {
+                    supabase.auth.signOut()
+                } catch (e: Exception) {
+                    Log.d(TAG, "Sign out after deletion (expected if user already removed): ${e.message}")
+                }
+                withContext(Dispatchers.Main) {
+                    clearUserSession()
+                    Log.d(TAG, "GDPR account deletion successful, session cleared")
+                    callback.onSuccess(null)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "GDPR deletion error: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback.onError("Account deletion failed: ${e.message ?: "Unknown error"}")
+                }
+            }
+        }
+    }
+
+    /**
      * Deletes the current authenticated user account.
      * This is used for cleanup when database operations fail after auth registration.
      * 

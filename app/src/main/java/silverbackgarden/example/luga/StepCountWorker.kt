@@ -124,9 +124,11 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
                     .putString("supabase_last_sync_steps", stepDataReports.joinToString(",") { it.date })
                     .putString("supabase_last_sync_bike", bikeDataReports.joinToString(",") { it.date })
                     .putString("supabase_last_sync_swim", swimDataReports.joinToString(",") { it.date })
+                    .putBoolean("token_data_needs_refresh", true) // Flag to refresh token data after sync
                     .apply()
                 
                 Log.d("StepCountWorker", "30-day activity sync completed. Steps: ${stepDataReports.size}, Bike: ${bikeDataReports.size}, Swim: ${swimDataReports.size}")
+                Log.d("StepCountWorker", "Token data refresh flag set - CentralActivity will refresh token data on next resume")
             } else {
                 Log.w("StepCountWorker", "No activity data available for 30-day Supabase sync")
             }
@@ -388,6 +390,10 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
                 supabaseUserManager.syncStepData(userUid, stepDataReports, object : SupabaseUserManager.DatabaseCallback<Int> {
                     override fun onSuccess(result: Int) {
                         Log.d("StepCountWorker", "Successfully synced $result new step records to Supabase")
+                        // Set flag to refresh token data after sync
+                        val prefs = applicationContext.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("token_data_needs_refresh", true).apply()
+                        Log.d("StepCountWorker", "Token data refresh flag set after step sync")
                     }
                     
                     override fun onError(error: String) {
@@ -415,6 +421,10 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
                 supabaseUserManager.syncBikeData(userUid, bikeDataReports, object : SupabaseUserManager.DatabaseCallback<Int> {
                     override fun onSuccess(result: Int) {
                         Log.d("StepCountWorker", "Successfully synced $result new bike records to Supabase")
+                        // Set flag to refresh token data after sync
+                        val prefs = applicationContext.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("token_data_needs_refresh", true).apply()
+                        Log.d("StepCountWorker", "Token data refresh flag set after bike sync")
                     }
                     
                     override fun onError(error: String) {
@@ -442,6 +452,10 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
                 supabaseUserManager.syncSwimData(userUid, swimDataReports, object : SupabaseUserManager.DatabaseCallback<Int> {
                     override fun onSuccess(result: Int) {
                         Log.d("StepCountWorker", "Successfully synced $result new swim records to Supabase")
+                        // Set flag to refresh token data after sync
+                        val prefs = applicationContext.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("token_data_needs_refresh", true).apply()
+                        Log.d("StepCountWorker", "Token data refresh flag set after swim sync")
                     }
                     
                     override fun onError(error: String) {

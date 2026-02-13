@@ -1,5 +1,6 @@
 package silverbackgarden.example.luga
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -22,6 +23,7 @@ class RegisterStep2Activity : AppCompatActivity() {
     private lateinit var employerCodeEditText: EditText
     private lateinit var completeRegistrationButton: Button
     private lateinit var supabaseUserManager: SupabaseUserManager
+    private lateinit var authManager: AuthManager
 
     private var userEmail: String = ""
 
@@ -30,9 +32,11 @@ class RegisterStep2Activity : AppCompatActivity() {
         setContentView(R.layout.activity_register_step2)
 
         supabaseUserManager = SupabaseUserManager()
+        authManager = AuthManager(this)
         
-        // Get email from previous step
+        // Get email from previous step (we always use authenticated user's UID from auth)
         userEmail = intent.getStringExtra("email") ?: ""
+        
         if (userEmail.isEmpty()) {
             Toast.makeText(this, "Error: No email provided", Toast.LENGTH_SHORT).show()
             finish()
@@ -42,6 +46,7 @@ class RegisterStep2Activity : AppCompatActivity() {
         bindViews()
         setupListeners()
     }
+    
 
     private fun bindViews() {
         employerCodeEditText = findViewById(R.id.employer_code_edittext)
@@ -107,16 +112,34 @@ class RegisterStep2Activity : AppCompatActivity() {
         // Create database record
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                // Get current user UID from Supabase Auth
+                // Always use the authenticated user's UID from auth (required for RLS policies)
+                // The RLS policy checks that uid = auth.uid(), so we must use the current authenticated user's ID
                 val userUid = supabaseUserManager.getCurrentUserUid()
+                
+                // Get the full user object for additional logging
+                val currentAuthUser = authManager.getCurrentUser()
+                if (currentAuthUser != null) {
+                    Log.d("RegisterStep2", "Current authenticated user - Email: ${currentAuthUser.email}, UID: ${currentAuthUser.id}")
+                }
+                
                 if (userUid == null) {
+                    Log.e("RegisterStep2", "ERROR: getCurrentUserUid() returned null - user not authenticated")
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@RegisterStep2Activity, "Error: User not authenticated", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@RegisterStep2Activity, "Error: User not authenticated. Please verify your email and log in.", Toast.LENGTH_LONG).show()
                         completeRegistrationButton.isEnabled = true
                         completeRegistrationButton.text = "Complete Registration"
+                        
+                        // Navigate to login
+                        val intent = Intent(this@RegisterStep2Activity, LoginActivity::class.java)
+                        intent.putExtra("email", userEmail)
+                        startActivity(intent)
                     }
                     return@launch
                 }
+                
+                Log.d("RegisterStep2", "Creating database record with authenticated user ID: $userUid")
+                Log.d("RegisterStep2", "User authenticated: ${authManager.isLoggedIn()}")
+                Log.d("RegisterStep2", "Email: $userEmail, UID: $userUid")
 
                 // Create user record in database
                 supabaseUserManager.registerUser(
@@ -127,9 +150,16 @@ class RegisterStep2Activity : AppCompatActivity() {
                         override fun onSuccess(result: UserData) {
                             runOnUiThread {
                                 val companyName = companyInfo?.company_name ?: "Unknown Company"
-                                Toast.makeText(this@RegisterStep2Activity, "Registration completed successfully! Welcome to $companyName", Toast.LENGTH_LONG).show()
+                                val isAuthenticated = authManager.isLoggedIn()
                                 
-                                // Navigate to main app
+                                if (isAuthenticated) {
+                                    Toast.makeText(this@RegisterStep2Activity, "Registration completed successfully! Welcome to $companyName", Toast.LENGTH_LONG).show()
+                                } else {
+                                    // User hasn't verified email yet
+                                    Toast.makeText(this@RegisterStep2Activity, "Registration completed! Please verify your email to access all features. Welcome to $companyName", Toast.LENGTH_LONG).show()
+                                }
+                                
+                                // Navigate to main app (user can verify email later)
                                 val intent = Intent(this@RegisterStep2Activity, CentralActivity::class.java)
                                 startActivity(intent)
                                 finish()

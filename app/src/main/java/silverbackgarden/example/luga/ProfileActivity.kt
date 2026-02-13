@@ -4,30 +4,32 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
+import android.widget.EditText
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import io.github.jan.supabase.gotrue.user.UserInfo
 
 /**
  * Profile activity that displays user information and provides profile management options.
- * 
+ *
  * This activity shows the user's profile details including email, employer, name, and surname.
- * It provides navigation to profile editing, account deletion functionality, and a way to
- * return to the main app interface.
- * 
- * The activity retrieves user data from shared preferences and displays it in a user-friendly format.
+ * - Email: from the account the user logs in with (Supabase Auth).
+ * - Employer: from dmp_company_user_registry via the user's connection_code (users_registry).
+ * - Name and surname: from shared preferences.
+ *
+ * It provides navigation to profile editing, account deletion, and return to the main app.
  */
 class ProfileActivity : AppCompatActivity() {
 
-    // UI Elements for displaying user information
-    private lateinit var emailTextView: TextView      // Displays user's email address
-    private lateinit var employerTextView: TextView  // Displays user's employer name
-    private lateinit var nameTextView: TextView      // Displays user's first name
-    private lateinit var surnameTextView: TextView   // Displays user's last name
+    private lateinit var emailTextView: TextView
+    private lateinit var employerTextView: TextView
+    private lateinit var nameTextView: TextView
+    private lateinit var surnameTextView: TextView
 
-    /**
-     * Shared preferences instance for accessing stored user data.
-     * Uses lazy initialization to access the application's shared preferences.
-     */
+    private lateinit var authManager: AuthManager
+    private val supabaseUserManager = SupabaseUserManager()
+
     private val sharedPref by lazy {
         (applicationContext as? Acteamity)?.sharedPref
     }
@@ -43,78 +45,198 @@ class ProfileActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
 
-        // Initialize UI elements for displaying user information
+        authManager = AuthManager(this)
         emailTextView = findViewById(R.id.email_textview)
         employerTextView = findViewById(R.id.employer_textview)
 
-        // Retrieve user data from shared preferences
-        val email = sharedPref?.getString("email", "")
-        val employerName = sharedPref?.getString("employer_name", "")
+        // Email: from the account the user logs in with (Supabase Auth)
+        val email = authManager.getCurrentUserEmail()
+        emailTextView.text = "Email: ${email ?: "—"}"
+
+        // Employer: from dmp_company_user_registry via connection_code
+        employerTextView.text = "Employer: …"
+        val userId = authManager.getCurrentUserId()
+        if (!userId.isNullOrEmpty()) {
+            supabaseUserManager.fetchEmployerNameForUser(userId, object : SupabaseUserManager.DatabaseCallback<String?> {
+                override fun onSuccess(result: String?) {
+                    employerTextView.text = "Employer: ${result ?: "—"}"
+                }
+                override fun onError(error: String) {
+                    employerTextView.text = "Employer: —"
+                }
+            })
+        } else {
+            employerTextView.text = "Employer: —"
+        }
+
         val name = sharedPref?.getString("name", null)
         val surname = sharedPref?.getString("surname", null)
 
-        // Set up edit profile button to navigate to profile editing
-        val editProfileButton: Button = findViewById(R.id.edit_profile_button)
-        editProfileButton.setOnClickListener {
-            val intent = Intent(this, ProfileEditActivity::class.java)
-            startActivity(intent)
+        // Change Password: navigate to ProfileEdit (password-only)
+        val changePasswordButton: Button = findViewById(R.id.change_password_button)
+        changePasswordButton.setOnClickListener {
+            startActivity(Intent(this, ProfileEditActivity::class.java))
         }
 
-        // Set up close button to return to main app interface
+        // Change Employer
+        val changeEmployerButton: Button = findViewById(R.id.change_employer_button)
+        changeEmployerButton.setOnClickListener { showChangeEmployerDialog() }
+
+        // Edit name / surname (small ✎ next to each)
+        findViewById<TextView>(R.id.edit_name_button).setOnClickListener { showEditNameDialog() }
+        findViewById<TextView>(R.id.edit_surname_button).setOnClickListener { showEditSurnameDialog() }
+
+        // Close: return to main app
         val closeButton: Button = findViewById(R.id.close_button)
         closeButton.setOnClickListener {
             val intent = Intent(this, CentralActivity::class.java)
             startActivity(intent)
         }
 
-        // Set up delete account button with confirmation dialog
-        val deleteAccountButton: Button = findViewById(R.id.delete_account_button)
-        deleteAccountButton.setOnClickListener {
-            // Create confirmation dialog for account deletion
-            val builder = AlertDialog.Builder(this)
-            builder.setTitle("Delete Account")
-            builder.setMessage("Are you sure you want to delete your account?")
+        // Set up delete account link (small, bottom): first confirmation -> type DELETE -> GDPR deletion
+        findViewById<TextView>(R.id.delete_account_link).setOnClickListener { showDeleteAccountDialogs() }
 
-            // Handle user confirmation of account deletion
-            builder.setPositiveButton("Yes") { dialog, _ ->
-                // Remove user credentials from shared preferences
-                val editor = sharedPref?.edit()
-                editor?.remove("email")?.apply()
-                editor?.remove("password")?.apply()
-                
-                // Navigate back to main activity (splash screen)
-                val intent = Intent(this, MainActivity::class.java)
-                startActivity(intent)
-                dialog.dismiss()
-            }
-
-            // Handle user cancellation of account deletion
-            builder.setNegativeButton("No") { dialog, _ ->
-                dialog.dismiss()
-            }
-
-            // Display the confirmation dialog
-            val dialog: AlertDialog = builder.create()
-            dialog.show()
-        }
-
-        // Display user information in the UI
-        emailTextView.text = "Email: $email"
-        employerTextView.text = "Employer: $employerName"
-        
-        // Initialize and display name and surname if available
         nameTextView = findViewById(R.id.name_textview)
         surnameTextView = findViewById(R.id.surname_textview)
-        
-        // Only display name if it's not null or empty
-        if (name?.isNotEmpty() == true) {
-            nameTextView.text = "Name: $name"
+        updateNameSurnameDisplay(name, surname)
+    }
+
+    private fun updateNameSurnameDisplay(name: String?, surname: String?) {
+        nameTextView.text = if (name.isNullOrEmpty()) "Name: —" else "Name: $name"
+        surnameTextView.text = if (surname.isNullOrEmpty()) "Surname: —" else "Surname: $surname"
+    }
+
+    private fun showDeleteAccountDialogs() {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.delete_account_confirm_title))
+            .setMessage(getString(R.string.delete_account_confirm_message))
+            .setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+                showTypeDeleteConfirmDialog()
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun showTypeDeleteConfirmDialog() {
+        val input = EditText(this).apply {
+            hint = "DELETE"
+            setSingleLine(true)
+            setPadding(
+                (48 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt(),
+                (48 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt()
+            )
         }
-        
-        // Only display surname if it's not null or empty
-        if (surname?.isNotEmpty() == true) {
-            surnameTextView.text = "Surname: $surname"
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.delete_type_confirm_title))
+            .setMessage(getString(R.string.delete_type_confirm_message))
+            .setView(input)
+            .setPositiveButton(getString(R.string.delete_confirm_button)) { _, _ ->
+                val typed = input.text.toString().trim()
+                if (typed.equals("DELETE", ignoreCase = true)) {
+                    performGdprDeletion()
+                } else {
+                    Toast.makeText(this, getString(R.string.delete_must_type_delete), Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun performGdprDeletion() {
+        authManager.requestGdprAccountDeletion(object : AuthManager.AuthCallback {
+            override fun onSuccess(user: UserInfo?) {
+                clearLocalUserData()
+                val intent = Intent(this@ProfileActivity, LoginActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                if (isFinishing || isDestroyed) {
+                    applicationContext.startActivity(intent)
+                } else {
+                    startActivity(intent)
+                    finish()
+                }
+            }
+
+            override fun onError(error: String) {
+                if (isFinishing || isDestroyed) return
+                Toast.makeText(this@ProfileActivity, error, Toast.LENGTH_LONG).show()
+            }
+        })
+    }
+
+    private fun clearLocalUserData() {
+        sharedPref?.edit()?.apply {
+            remove("email")
+            remove("password")
+            remove("name")
+            remove("surname")
+            remove("employer_name")
+            apply()
         }
+    }
+
+    private fun showChangeEmployerDialog() {
+        val options = arrayOf("Provide new employer code", "Remove employer", "Cancel")
+        AlertDialog.Builder(this)
+            .setTitle("Change Employer")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> { /* TODO: new employer code */ }
+                    1 -> {
+                        getSharedPreferences("MyPrefs", MODE_PRIVATE).edit()
+                            .putString("employer_name", null).apply()
+                    }
+                    2 -> { }
+                }
+            }
+            .show()
+    }
+
+    private fun showEditNameDialog() {
+        val prefs = getSharedPreferences("MyPrefs", MODE_PRIVATE)
+        val current = prefs.getString("name", "") ?: ""
+        val input = EditText(this).apply {
+            setText(current)
+            hint = "Name"
+            setSingleLine(true)
+            setPadding((48 * resources.displayMetrics.density).toInt(), (32 * resources.displayMetrics.density).toInt(), (48 * resources.displayMetrics.density).toInt(), (32 * resources.displayMetrics.density).toInt())
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Edit Name")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val v = input.text.toString().trim()
+                prefs.edit().putString("name", v).apply()
+                updateNameSurnameDisplay(v, prefs.getString("surname", null))
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showEditSurnameDialog() {
+        val prefs = getSharedPreferences("MyPrefs", MODE_PRIVATE)
+        val current = prefs.getString("surname", "") ?: ""
+        val input = EditText(this).apply {
+            setText(current)
+            hint = "Surname"
+            setSingleLine(true)
+            setPadding((48 * resources.displayMetrics.density).toInt(), (32 * resources.displayMetrics.density).toInt(), (48 * resources.displayMetrics.density).toInt(), (32 * resources.displayMetrics.density).toInt())
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Edit Surname")
+            .setView(input)
+            .setPositiveButton("Save") { _, _ ->
+                val v = input.text.toString().trim()
+                prefs.edit().putString("surname", v).apply()
+                updateNameSurnameDisplay(prefs.getString("name", null), v)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }
 

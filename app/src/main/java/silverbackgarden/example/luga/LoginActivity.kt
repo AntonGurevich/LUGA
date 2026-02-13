@@ -86,8 +86,11 @@ class LoginActivity : AppCompatActivity() {
         passwordEditText.visibility = View.VISIBLE
         createAccountButton.visibility = View.VISIBLE
 
-        // Pre-fill email if saved credentials exist (for migration)
-        if (isUserDataSaved()) {
+        // Pre-fill email if saved credentials exist (for migration) or from intent
+        val emailFromIntent = intent.getStringExtra("email")
+        if (!emailFromIntent.isNullOrEmpty()) {
+            emailEditText.setText(emailFromIntent)
+        } else if (isUserDataSaved()) {
             val savedEmail = sharedPref?.getString("email", null)
             if (!savedEmail.isNullOrEmpty()) {
                 emailEditText.setText(savedEmail)
@@ -112,14 +115,21 @@ class LoginActivity : AppCompatActivity() {
                         loginButton.isEnabled = true
                         loginButton.text = "Login"
                         
-                        // User authenticated successfully
-                        Toast.makeText(this@LoginActivity, "Login successful!", Toast.LENGTH_SHORT).show()
-                        
-                        // Set up Google Sign-In for fitness data
-                        setupGoogleSignIn()
-                        
-                        // Navigate to main app functionality
-                        navigateToMainApp()
+                        // Check if user needs to complete registration
+                        // This will redirect to RegisterStep2Activity if needed, or continue to main app
+                        checkAndCompleteRegistration(email) { registrationComplete ->
+                            if (registrationComplete) {
+                                // User authenticated successfully and registration is complete
+                                Toast.makeText(this@LoginActivity, "Login successful!", Toast.LENGTH_SHORT).show()
+                                
+                                // Set up Google Sign-In for fitness data
+                                setupGoogleSignIn()
+                                
+                                // Navigate to main app functionality
+                                navigateToMainApp()
+                            }
+                            // If registrationComplete is false, checkAndCompleteRegistration already navigated to step 2
+                        }
                     }
 
                     override fun onError(error: String) {
@@ -127,7 +137,12 @@ class LoginActivity : AppCompatActivity() {
                         loginButton.isEnabled = true
                         loginButton.text = "Login"
                         
-                        Toast.makeText(this@LoginActivity, "Login failed: $error", Toast.LENGTH_LONG).show()
+                        // Check if error is due to unverified email
+                        if (error == "EMAIL_NOT_VERIFIED") {
+                            showEmailVerificationErrorDialog(email)
+                        } else {
+                            Toast.makeText(this@LoginActivity, "Login failed: $error", Toast.LENGTH_LONG).show()
+                        }
                     }
                 })
             } else {
@@ -303,6 +318,94 @@ class LoginActivity : AppCompatActivity() {
 
         val dialog: AlertDialog = builder.create()
         dialog.show()
+    }
+    
+    /**
+     * Shows a dialog when user tries to login but email is not verified.
+     * Provides option to resend verification email.
+     */
+    private fun showEmailVerificationErrorDialog(email: String) {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Email Not Verified")
+        builder.setMessage("Your email address ($email) has not been verified yet. Please check your email inbox and click the verification link to activate your account. You can also request a new verification email.")
+        
+        builder.setPositiveButton("Resend Email") { dialog, _ ->
+            resendVerificationEmail(email)
+            dialog.dismiss()
+        }
+        
+        builder.setNeutralButton("OK") { dialog, _ ->
+            dialog.dismiss()
+        }
+        
+        builder.setCancelable(true)
+        val dialog: AlertDialog = builder.create()
+        dialog.show()
+    }
+    
+    /**
+     * Resends the verification email to the user.
+     */
+    private fun resendVerificationEmail(email: String) {
+        authManager.resendEmailConfirmation(email, object : AuthManager.AuthCallback {
+            override fun onSuccess(user: UserInfo?) {
+                Toast.makeText(this@LoginActivity, "Verification email sent to $email. Please check your inbox.", Toast.LENGTH_LONG).show()
+            }
+            
+            override fun onError(error: String) {
+                Toast.makeText(this@LoginActivity, "Failed to resend verification email: $error", Toast.LENGTH_LONG).show()
+            }
+        })
+    }
+    
+    /**
+     * Checks if the user needs to complete registration (create database record).
+     * This is called after successful login to handle the case where user verified email
+     * but hasn't completed Step 2 of registration.
+     * If user doesn't exist in users_registry, redirects to RegisterStep2Activity.
+     * 
+     * @param email User's email address
+     * @param callback Callback called with true if registration is complete, false if redirected to step 2
+     */
+    private fun checkAndCompleteRegistration(email: String, callback: (Boolean) -> Unit) {
+        val supabaseUserManager = SupabaseUserManager()
+        val userUid = authManager.getCurrentUserId()
+        
+        if (userUid == null) {
+            Log.w(TAG, "Cannot check registration completion - no user ID available")
+            callback(true) // Assume complete if we can't check
+            return
+        }
+        
+        // Check if user exists in database
+        supabaseUserManager.checkUserExists(email, 0L, object : SupabaseUserManager.DatabaseCallback<UserExistsResponse> {
+            override fun onSuccess(result: UserExistsResponse) {
+                if (!result.exists || result.user?.uid == null) {
+                    // User doesn't exist in database or doesn't have a UID - need to complete registration
+                    Log.d(TAG, "User $email needs to complete registration - redirecting to RegisterStep2Activity")
+                    
+                    // Navigate to step 2 to complete registration
+                    val intent = Intent(this@LoginActivity, RegisterStep2Activity::class.java)
+                    intent.putExtra("email", email)
+                    startActivity(intent)
+                    finish() // Finish LoginActivity so user can't go back
+                    callback(false) // Registration not complete
+                } else {
+                    Log.d(TAG, "User $email has completed registration")
+                    callback(true) // Registration is complete
+                }
+            }
+            
+            override fun onError(error: String) {
+                Log.e(TAG, "Error checking registration completion: $error")
+                // On error, assume user needs to complete registration to be safe
+                val intent = Intent(this@LoginActivity, RegisterStep2Activity::class.java)
+                intent.putExtra("email", email)
+                startActivity(intent)
+                finish()
+                callback(false) // Registration not complete
+            }
+        })
     }
 
     companion object {

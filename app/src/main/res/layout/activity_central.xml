@@ -3,19 +3,32 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <!-- Acteamity logo small on top middle (like login) -->
+    <ImageView
+        android:id="@+id/central_logo"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="4dp"
+        android:contentDescription="@string/app_name"
+        app:srcCompat="@drawable/acteamity_logo1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <LinearLayout
         android:id="@+id/topMenu"
         android:layout_width="match_parent"
         android:layout_height="70dp"
         android:orientation="horizontal"
-
-        android:background="@color/background_teal"
+        android:background="@color/white"
+        android:gravity="right"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        android:gravity="right"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toBottomOf="@+id/central_logo">
 
         <Button
             android:id="@+id/profileButton"
@@ -31,7 +44,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:background="@color/background_teal"
+        android:background="@color/white"
         android:padding="8dp"
         android:gravity="center"
         app:layout_constraintTop_toBottomOf="@+id/topMenu">
@@ -48,8 +61,8 @@
 
             <ImageView
                 android:id="@+id/activityRecognitionIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:src="@android:drawable/ic_menu_directions"
                 android:contentDescription="Activity Recognition Permission" />
 
@@ -59,7 +72,7 @@
                 android:layout_height="wrap_content"
                 android:text="Activity"
                 android:textSize="10sp"
-                android:textColor="@android:color/white"
+                android:textColor="@color/black"
                 android:gravity="center" />
 
             <TextView
@@ -68,7 +81,7 @@
                 android:layout_height="wrap_content"
                 android:text="Pending"
                 android:textSize="8sp"
-                android:textColor="@android:color/white"
+                android:textColor="@color/black"
                 android:gravity="center" />
         </LinearLayout>
 
@@ -84,8 +97,8 @@
 
             <ImageView
                 android:id="@+id/bodySensorsIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:src="@android:drawable/ic_menu_compass"
                 android:contentDescription="Body Sensors Permission" />
 
@@ -95,7 +108,7 @@
                 android:layout_height="wrap_content"
                 android:text="Sensors"
                 android:textSize="10sp"
-                android:textColor="@android:color/white"
+                android:textColor="@color/black"
                 android:gravity="center" />
 
             <TextView
@@ -104,7 +117,7 @@
                 android:layout_height="wrap_content"
                 android:text="Pending"
                 android:textSize="8sp"
-                android:textColor="@android:color/white"
+                android:textColor="@color/black"
                 android:gravity="center" />
         </LinearLayout>
 
@@ -120,8 +133,8 @@
 
             <ImageView
                 android:id="@+id/googleFitIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:src="@android:drawable/ic_menu_share"
                 android:contentDescription="Google Fit Permission" />
 
@@ -131,7 +144,7 @@
                 android:layout_height="wrap_content"
                 android:text="Google Fit"
                 android:textSize="10sp"
-                android:textColor="@android:color/white"
+                android:textColor="@color/black"
                 android:gravity="center" />
 
             <TextView
@@ -140,7 +153,7 @@
                 android:layout_height="wrap_content"
                 android:text="Pending"
                 android:textSize="8sp"
-                android:textColor="@android:color/white"
+                android:textColor="@color/black"
                 android:gravity="center" />
         </LinearLayout>
 
@@ -156,8 +169,8 @@
 
             <ImageView
                 android:id="@+id/googleAccountIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:src="@android:drawable/ic_menu_myplaces"
                 android:contentDescription="Google Account Status" />
 
@@ -167,7 +180,7 @@
                 android:layout_height="wrap_content"
                 android:text="Account"
                 android:textSize="10sp"
-                android:textColor="@android:color/white"
+                android:textColor="@color/black"
                 android:gravity="center" />
 
             <TextView
@@ -176,7 +189,7 @@
                 android:layout_height="wrap_content"
                 android:text="Pending"
                 android:textSize="8sp"
-                android:textColor="@android:color/white"
+                android:textColor="@color/black"
                 android:gravity="center" />
         </LinearLayout>
     </LinearLayout>
@@ -186,7 +199,7 @@
         android:layout_width="match_parent"
         android:layout_height="170dp"
         android:orientation="horizontal"
-        android:background="@color/background_teal"
+        android:background="@color/white"
         app:layout_constraintTop_toBottomOf="@+id/permissionIndicators">
 
 
@@ -198,8 +211,8 @@
 
             <com.mikhaellopez.circularprogressbar.CircularProgressBar
                 android:id="@+id/circularProgressBarExTokens"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
                 app:cpb_background_progressbar_color="@color/beaver"
                 app:cpb_background_progressbar_width="5dp"
                 app:cpb_progress="10"
@@ -248,8 +261,8 @@
 
             <com.mikhaellopez.circularprogressbar.CircularProgressBar
                 android:id="@+id/circularProgressBarNonExTokens"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
                 app:cpb_background_progressbar_color="@color/teal_200"
                 app:cpb_background_progressbar_width="5dp"
                 app:cpb_progress="10"
@@ -313,8 +326,7 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="horizontal"
-            android:background="@color/background_teal"
-            >
+            android:background="@color/white">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
@@ -324,8 +336,8 @@
 
                 <com.mikhaellopez.circularprogressbar.CircularProgressBar
                     android:id="@+id/circularProgressBarSteps"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     app:cpb_background_progressbar_color="@color/teal_200"
                     app:cpb_background_progressbar_width="5dp"
                     app:cpb_progress="740"
@@ -344,12 +356,18 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:orientation="vertical"
+                    android:gravity="center"
                     app:layout_constraintBottom_toBottomOf="@+id/circularProgressBarSteps"
                     app:layout_constraintEnd_toEndOf="@+id/circularProgressBarSteps"
                     app:layout_constraintStart_toStartOf="@+id/circularProgressBarSteps"
                     app:layout_constraintTop_toTopOf="@+id/circularProgressBarSteps">
 
-
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/run"
+                        android:contentDescription="Steps"
+                        android:layout_gravity="center" />
                     <TextView
                         android:id="@+id/tvSteps"
                         android:layout_width="wrap_content"
@@ -374,8 +392,8 @@
 
             <com.mikhaellopez.circularprogressbar.CircularProgressBar
                 android:id="@+id/circularProgressBarCycle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
                 app:cpb_background_progressbar_color="@color/teal_200"
                 app:cpb_background_progressbar_width="5dp"
                 app:cpb_progress_direction="to_right"
@@ -392,12 +410,18 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:orientation="vertical"
+                android:gravity="center"
                 app:layout_constraintBottom_toBottomOf="@+id/circularProgressBarCycle"
                 app:layout_constraintEnd_toEndOf="@+id/circularProgressBarCycle"
                 app:layout_constraintStart_toStartOf="@+id/circularProgressBarCycle"
                 app:layout_constraintTop_toTopOf="@+id/circularProgressBarCycle">
 
-
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/bike"
+                    android:contentDescription="Cycle"
+                    android:layout_gravity="center" />
                 <TextView
                     android:id="@+id/tvCycle"
                     android:layout_width="wrap_content"
@@ -422,8 +446,8 @@
 
                 <com.mikhaellopez.circularprogressbar.CircularProgressBar
                     android:id="@+id/circularProgressBarSwim"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     app:cpb_background_progressbar_color="@color/teal_200"
                     app:cpb_background_progressbar_width="5dp"
                     app:cpb_progress_direction="to_right"
@@ -440,12 +464,18 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
                     android:orientation="vertical"
+                    android:gravity="center"
                     app:layout_constraintBottom_toBottomOf="@+id/circularProgressBarSwim"
                     app:layout_constraintEnd_toEndOf="@+id/circularProgressBarSwim"
                     app:layout_constraintStart_toStartOf="@+id/circularProgressBarSwim"
                     app:layout_constraintTop_toTopOf="@+id/circularProgressBarSwim">
 
-
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/swim"
+                        android:contentDescription="Swim"
+                        android:layout_gravity="center" />
                     <TextView
                         android:id="@+id/tvSwim"
                         android:layout_width="wrap_content"
@@ -468,7 +498,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@color/background_teal"
+            android:background="@color/white"
             android:orientation="horizontal">
 
             <androidx.constraintlayout.widget.ConstraintLayout
@@ -479,8 +509,8 @@
 
                 <com.mikhaellopez.circularprogressbar.CircularProgressBar
                     android:id="@+id/circularProgressBarWeights"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     app:cpb_background_progressbar_color="@color/teal_200"
                     app:cpb_background_progressbar_width="5dp"
                     app:cpb_progress_direction="to_right"
@@ -527,8 +557,8 @@
 
                 <com.mikhaellopez.circularprogressbar.CircularProgressBar
                     android:id="@+id/circularProgressBarAct5"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     app:cpb_background_progressbar_color="@color/teal_200"
                     app:cpb_background_progressbar_width="5dp"
                     app:cpb_progress_direction="to_right"
@@ -575,8 +605,8 @@
 
                 <com.mikhaellopez.circularprogressbar.CircularProgressBar
                     android:id="@+id/circularProgressBarAct6"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     app:cpb_background_progressbar_color="@color/teal_200"
                     app:cpb_background_progressbar_width="5dp"
                     app:cpb_progress_direction="to_right"
@@ -621,7 +651,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@color/background_teal"
+            android:background="@color/white"
             android:orientation="horizontal">
 
             <androidx.constraintlayout.widget.ConstraintLayout
@@ -632,8 +662,8 @@
 
                 <com.mikhaellopez.circularprogressbar.CircularProgressBar
                     android:id="@+id/circularProgressBarAct7"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     app:cpb_background_progressbar_color="@color/teal_200"
                     app:cpb_background_progressbar_width="5dp"
                     app:cpb_progress_direction="to_right"
@@ -681,8 +711,8 @@
 
                 <com.mikhaellopez.circularprogressbar.CircularProgressBar
                     android:id="@+id/circularProgressBarAct8"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     app:cpb_background_progressbar_color="@color/teal_200"
                     app:cpb_background_progressbar_width="5dp"
                     app:cpb_progress_direction="to_right"
@@ -779,7 +809,7 @@
         android:layout_width="409dp"
         android:layout_height="0dp"
         android:orientation="horizontal"
-        android:background="@color/background_teal"
+        android:background="@color/white"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

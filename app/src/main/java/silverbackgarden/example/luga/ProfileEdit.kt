@@ -1,113 +1,106 @@
 package silverbackgarden.example.luga
 
-import android.content.SharedPreferences
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
-import androidx.appcompat.app.AlertDialog
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 /**
- * Profile editing activity that allows users to modify their profile information.
- * 
- * This activity provides an interface for users to update their personal details
- * including name, surname, and employer information. It loads existing data from
- * shared preferences and saves changes back to persistent storage.
- * 
- * The activity includes functionality for:
- * - Editing name and surname
- * - Changing or removing employer association
- * - Saving changes to shared preferences
+ * Activity for changing the user's password.
+ *
+ * Verifies the current password via sign-in, then updates to the new password
+ * using Supabase Auth. Email is taken from AuthManager (logged-in user).
  */
 class ProfileEditActivity : AppCompatActivity() {
 
-    // Data storage and UI elements
-    private lateinit var sharedPreferences: SharedPreferences  // For storing user data
-    private lateinit var nameEditText: EditText               // First name input field
-    private lateinit var surnameEditText: EditText            // Last name input field
-    private lateinit var saveButton: Button                   // Save changes button
-    private lateinit var changeEmployerButton: Button         // Employer management button
+    private lateinit var currentPasswordEditText: EditText
+    private lateinit var newPasswordEditText: EditText
+    private lateinit var confirmPasswordEditText: EditText
+    private lateinit var changePasswordButton: Button
+    private lateinit var authManager: AuthManager
 
-    /**
-     * Called when the activity is first created.
-     * Initializes the UI, loads existing profile data, and sets up
-     * event listeners for user interactions.
-     * 
-     * @param savedInstanceState Bundle containing the activity's previously saved state
-     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile_edit)
 
-        // Initialize shared preferences and UI elements
-        sharedPreferences = getSharedPreferences("MyPrefs", MODE_PRIVATE)
-        nameEditText = findViewById(R.id.edit_name_edittext)
-        surnameEditText = findViewById(R.id.edit_surname_edittext)
-        saveButton = findViewById(R.id.save_button)
-        changeEmployerButton = findViewById(R.id.change_employer_button)
+        currentPasswordEditText = findViewById(R.id.current_password_edittext)
+        newPasswordEditText = findViewById(R.id.new_password_edittext)
+        confirmPasswordEditText = findViewById(R.id.confirm_password_edittext)
+        changePasswordButton = findViewById(R.id.change_password_button)
+        authManager = AuthManager(this)
 
-        // Retrieve the saved name and surname from SharedPreferences
-        val name = sharedPreferences.getString("name", "")
-        val surname = sharedPreferences.getString("surname", "")
-
-        // Pre-populate the EditText fields with existing values
-        nameEditText.setText(name)
-        surnameEditText.setText(surname)
-
-        // Set up employer change button click listener
-        changeEmployerButton.setOnClickListener {
-            showChangeEmployerDialog()
-        }
-
-        // Set up save button click listener
-        saveButton.setOnClickListener {
-            // Get the updated values from input fields
-            val newName = nameEditText.text.toString()
-            val newSurname = surnameEditText.text.toString()
-
-            // Save the updated name and surname in SharedPreferences
-            val editor = sharedPreferences.edit()
-            editor.putString("name", newName)
-            editor.putString("surname", newSurname)
-            editor.apply()
-
-            // Finish the activity and return to the profile screen
-            finish()
-        }
+        changePasswordButton.setOnClickListener { handlePasswordChange() }
     }
 
-    /**
-     * Shows a dialog with options for managing employer association.
-     * 
-     * This method presents users with three options:
-     * 1. Provide a new employer code (currently not implemented)
-     * 2. Remove current employer association
-     * 3. Cancel the operation
-     */
-    private fun showChangeEmployerDialog() {
-        // Define the available options for employer management
-        val options = arrayOf("Provide new employer code", "Remove employer", "Cancel")
+    private fun handlePasswordChange() {
+        val currentPassword = currentPasswordEditText.text.toString()
+        val newPassword = newPasswordEditText.text.toString()
+        val confirmPassword = confirmPasswordEditText.text.toString()
 
-        // Create and configure the dialog
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("Change Employer")
-        builder.setItems(options) { _, which ->
-            when (which) {
-                0 -> {
-                    // TODO: Handle providing new employer code
-                    // This functionality is not yet implemented in the MVP
-                }
-                1 -> {
-                    // Remove employer association by setting employer_name to null
-                    val editor = sharedPreferences.edit()
-                    editor.putString("employer_name", null)
-                    editor.apply()
-                }
-                2 -> {
-                    // Cancel option - do nothing and dismiss dialog
+        if (currentPassword.isEmpty()) {
+            Toast.makeText(this, "Please enter your current password", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (newPassword.isEmpty()) {
+            Toast.makeText(this, "Please enter a new password", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (newPassword.length < 6) {
+            Toast.makeText(this, "New password must be at least 6 characters long", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (newPassword != confirmPassword) {
+            Toast.makeText(this, "New passwords do not match", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (currentPassword == newPassword) {
+            Toast.makeText(this, "New password must be different from current password", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val email = authManager.getCurrentUserEmail()
+        if (email == null) {
+            Toast.makeText(this, "Error: Email not found. Please log in again.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        changePasswordButton.isEnabled = false
+        changePasswordButton.text = "Changing..."
+
+        authManager.signIn(email, currentPassword, object : AuthManager.AuthCallback {
+            override fun onSuccess(user: io.github.jan.supabase.gotrue.user.UserInfo?) {
+                if (user != null) {
+                    authManager.updatePassword(newPassword, object : AuthManager.AuthCallback {
+                        override fun onSuccess(user: io.github.jan.supabase.gotrue.user.UserInfo?) {
+                            changePasswordButton.isEnabled = true
+                            changePasswordButton.text = "Change Password"
+                            currentPasswordEditText.text.clear()
+                            newPasswordEditText.text.clear()
+                            confirmPasswordEditText.text.clear()
+                            Toast.makeText(this@ProfileEditActivity, "Password changed successfully!", Toast.LENGTH_LONG).show()
+                            Log.d("ProfileEdit", "Password updated successfully")
+                        }
+                        override fun onError(error: String) {
+                            changePasswordButton.isEnabled = true
+                            changePasswordButton.text = "Change Password"
+                            Toast.makeText(this@ProfileEditActivity, "Failed to change password: $error", Toast.LENGTH_LONG).show()
+                            Log.e("ProfileEdit", "Password update error: $error")
+                        }
+                    })
+                } else {
+                    changePasswordButton.isEnabled = true
+                    changePasswordButton.text = "Change Password"
+                    Toast.makeText(this@ProfileEditActivity, "Current password verification failed", Toast.LENGTH_LONG).show()
                 }
             }
-        }
-        builder.show()
+            override fun onError(error: String) {
+                changePasswordButton.isEnabled = true
+                changePasswordButton.text = "Change Password"
+                Toast.makeText(this@ProfileEditActivity, "Current password is incorrect", Toast.LENGTH_LONG).show()
+                Log.e("ProfileEdit", "Current password verification error: $error")
+            }
+        })
     }
 }
