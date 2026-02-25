@@ -2,6 +2,7 @@ package silverbackgarden.example.luga
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Patterns
 import android.view.View
@@ -161,6 +162,17 @@ class LoginActivity : AppCompatActivity() {
             showForgotPasswordDialog()
         }
 
+        // Privacy and Terms links
+        findViewById<TextView>(R.id.login_privacy_link).setOnClickListener {
+            openUrl("https://acteamity.com/privacy")
+        }
+        findViewById<TextView>(R.id.login_terms_link).setOnClickListener {
+            openUrl("https://acteamity.com/terms")
+        }
+    }
+
+    private fun openUrl(url: String) {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 
     /**

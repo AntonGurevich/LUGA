@@ -43,13 +43,60 @@
         android:layout_below="@id/register_confirm_password_edittext"
         android:layout_marginBottom="16dp" />
 
+    <CheckBox
+        android:id="@+id/agree_terms_checkbox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/agree_terms_checkbox"
+        android:textSize="14sp"
+        android:layout_below="@id/password_match_textview"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:id="@+id/terms_links_row"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_below="@id/agree_terms_checkbox"
+        android:layout_marginBottom="16dp">
+        <TextView
+            android:id="@+id/register_privacy_link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/privacy_policy"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="4dp"
+            android:background="?attr/selectableItemBackground" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="  •  "
+            android:textSize="12sp"
+            android:textColor="#666666" />
+        <TextView
+            android:id="@+id/register_terms_link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/terms_and_conditions"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="4dp"
+            android:background="?attr/selectableItemBackground" />
+    </LinearLayout>
+
     <Button
         android:id="@+id/continue_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Continue"
-        android:layout_below="@id/password_match_textview"
-        android:layout_marginTop="16dp" />
+        android:layout_below="@id/terms_links_row"
+        android:layout_marginTop="8dp" />
 
 </RelativeLayout>
 

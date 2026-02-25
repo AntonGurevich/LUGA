@@ -4,6 +4,7 @@ import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -11,6 +12,7 @@ import android.util.Log
 import android.util.Patterns
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -32,6 +34,7 @@ class RegisterStep1Activity : AppCompatActivity() {
     private lateinit var passwordEditText: EditText
     private lateinit var confirmPasswordEditText: EditText
     private lateinit var passwordMatchTextView: TextView
+    private lateinit var agreeTermsCheckBox: CheckBox
     private lateinit var continueButton: Button
 
     private lateinit var authManager: AuthManager
@@ -66,6 +69,7 @@ class RegisterStep1Activity : AppCompatActivity() {
         passwordEditText = findViewById(R.id.register_password_edittext)
         confirmPasswordEditText = findViewById(R.id.register_confirm_password_edittext)
         passwordMatchTextView = findViewById(R.id.password_match_textview)
+        agreeTermsCheckBox = findViewById(R.id.agree_terms_checkbox)
         continueButton = findViewById(R.id.continue_button)
     }
 
@@ -91,9 +95,20 @@ class RegisterStep1Activity : AppCompatActivity() {
                 checkVerificationAndProceed()
             }
         }
+
+        findViewById<TextView>(R.id.register_privacy_link).setOnClickListener {
+            openUrl("https://acteamity.com/privacy")
+        }
+        findViewById<TextView>(R.id.register_terms_link).setOnClickListener {
+            openUrl("https://acteamity.com/terms")
+        }
         
         // Set initial button text
         continueButton.text = "Verify Email"
+    }
+
+    private fun openUrl(url: String) {
+        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
     }
 
     private fun validatePasswordMatch() {
@@ -136,6 +151,11 @@ class RegisterStep1Activity : AppCompatActivity() {
 
         if (password != confirmPassword) {
             Toast.makeText(this, "Passwords do not match", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (!agreeTermsCheckBox.isChecked) {
+            Toast.makeText(this, "Please agree to the Terms and Conditions and Privacy Policy to continue", Toast.LENGTH_LONG).show()
             return
         }
 

@@ -132,6 +132,44 @@
             android:layout_marginBottom="24dp" />
     </LinearLayout>
 
+    <!-- Privacy and Terms links -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp">
+        <TextView
+            android:id="@+id/profile_privacy_link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/privacy_policy"
+            android:textSize="12sp"
+            android:textColor="#888888"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="  •  "
+            android:textSize="12sp"
+            android:textColor="#888888" />
+        <TextView
+            android:id="@+id/profile_terms_link"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/terms_and_conditions"
+            android:textSize="12sp"
+            android:textColor="#888888"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="8dp"
+            android:background="?attr/selectableItemBackground" />
+    </LinearLayout>
+
     <!-- Small link-style delete at bottom (like unsubscribe in emails) -->
     <TextView
         android:id="@+id/delete_account_link"

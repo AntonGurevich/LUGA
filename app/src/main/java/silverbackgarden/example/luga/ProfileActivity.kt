@@ -2,6 +2,7 @@ package silverbackgarden.example.luga
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
@@ -95,6 +96,13 @@ class ProfileActivity : AppCompatActivity() {
 
         // Set up delete account link (small, bottom): first confirmation -> type DELETE -> GDPR deletion
         findViewById<TextView>(R.id.delete_account_link).setOnClickListener { showDeleteAccountDialogs() }
+
+        findViewById<TextView>(R.id.profile_privacy_link).setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://acteamity.com/privacy")))
+        }
+        findViewById<TextView>(R.id.profile_terms_link).setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://acteamity.com/terms")))
+        }
 
         nameTextView = findViewById(R.id.name_textview)
         surnameTextView = findViewById(R.id.surname_textview)
