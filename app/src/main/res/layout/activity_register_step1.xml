@@ -1,102 +1,166 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
-    tools:context=".RegisterStep1Activity">
+    android:fitsSystemWindows="true"
+    android:fillViewport="true"
+    android:background="@color/act_ink_50">
 
-    <EditText
-        android:id="@+id/register_email_edittext"
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Email"
-        android:inputType="textEmailAddress"
-        android:layout_marginBottom="16dp" />
+        android:padding="20dp"
+        tools:context=".RegisterStep1Activity">
 
-    <EditText
-        android:id="@+id/register_password_edittext"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Password"
-        android:inputType="textPassword"
-        android:layout_below="@id/register_email_edittext"
-        android:layout_marginBottom="16dp" />
+        <LinearLayout
+            android:id="@+id/step1Header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="24dp">
 
-    <EditText
-        android:id="@+id/register_confirm_password_edittext"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Confirm Password"
-        android:inputType="textPassword"
-        android:layout_below="@id/register_password_edittext"
-        android:layout_marginBottom="16dp" />
+            <ImageView
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginBottom="10dp"
+                android:contentDescription="@string/app_name"
+                app:srcCompat="@drawable/acteamity_logo1" />
 
-    <TextView
-        android:id="@+id/password_match_textview"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textColor="@android:color/holo_red_dark"
-        android:textSize="12sp"
-        android:visibility="gone"
-        android:layout_below="@id/register_confirm_password_edittext"
-        android:layout_marginBottom="16dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Create your account"
+                android:textAppearance="@style/TextAppearance.Acteamity.Header"
+                android:textSize="20sp" />
 
-    <CheckBox
-        android:id="@+id/agree_terms_checkbox"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/agree_terms_checkbox"
-        android:textSize="14sp"
-        android:layout_below="@id/password_match_textview"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Step 1 of 2"
+                android:textAppearance="@style/TextAppearance.Acteamity.Label" />
+        </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/terms_links_row"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_below="@id/agree_terms_checkbox"
-        android:layout_marginBottom="16dp">
+        <EditText
+            android:id="@+id/register_email_edittext"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/step1Header"
+            android:background="@drawable/bg_auth_input"
+            android:hint="Email"
+            android:inputType="textEmailAddress"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="14dp"
+            android:textColor="@color/act_ink_900"
+            android:textColorHint="@color/act_ink_400"
+            android:textSize="15sp"
+            android:layout_marginBottom="14dp" />
+
+        <EditText
+            android:id="@+id/register_password_edittext"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Password"
+            android:inputType="textPassword"
+            android:background="@drawable/bg_auth_input"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="14dp"
+            android:textColor="@color/act_ink_900"
+            android:textColorHint="@color/act_ink_400"
+            android:textSize="15sp"
+            android:layout_below="@id/register_email_edittext"
+            android:layout_marginBottom="14dp" />
+
+        <EditText
+            android:id="@+id/register_confirm_password_edittext"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Confirm Password"
+            android:inputType="textPassword"
+            android:background="@drawable/bg_auth_input"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="14dp"
+            android:textColor="@color/act_ink_900"
+            android:textColorHint="@color/act_ink_400"
+            android:textSize="15sp"
+            android:layout_below="@id/register_password_edittext"
+            android:layout_marginBottom="10dp" />
+
         <TextView
-            android:id="@+id/register_privacy_link"
+            android:id="@+id/password_match_textview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="@color/act_error"
+            android:textSize="12sp"
+            android:visibility="gone"
+            android:layout_below="@id/register_confirm_password_edittext"
+            android:layout_marginBottom="14dp" />
+
+        <CheckBox
+            android:id="@+id/agree_terms_checkbox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/agree_terms_checkbox"
+            android:textColor="@color/act_ink_900"
+            android:textSize="14sp"
+            android:layout_below="@id/password_match_textview"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:id="@+id/terms_links_row"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/privacy_policy"
-            android:textSize="12sp"
-            android:textColor="#666666"
-            android:clickable="true"
-            android:focusable="true"
-            android:padding="4dp"
-            android:background="?attr/selectableItemBackground" />
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="  •  "
-            android:textSize="12sp"
-            android:textColor="#666666" />
-        <TextView
-            android:id="@+id/register_terms_link"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/terms_and_conditions"
-            android:textSize="12sp"
-            android:textColor="#666666"
-            android:clickable="true"
-            android:focusable="true"
-            android:padding="4dp"
-            android:background="?attr/selectableItemBackground" />
-    </LinearLayout>
+            android:orientation="horizontal"
+            android:layout_below="@id/agree_terms_checkbox"
+            android:layout_marginBottom="20dp">
+            <TextView
+                android:id="@+id/register_privacy_link"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/privacy_policy"
+                android:textSize="12sp"
+                android:textColor="@color/act_ink_500"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:background="?attr/selectableItemBackground" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="  •  "
+                android:textSize="12sp"
+                android:textColor="@color/act_ink_500" />
+            <TextView
+                android:id="@+id/register_terms_link"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/terms_and_conditions"
+                android:textSize="12sp"
+                android:textColor="@color/act_ink_500"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="4dp"
+                android:background="?attr/selectableItemBackground" />
+        </LinearLayout>
 
-    <Button
-        android:id="@+id/continue_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Continue"
-        android:layout_below="@id/terms_links_row"
-        android:layout_marginTop="8dp" />
+        <Button
+            android:id="@+id/continue_button"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="Verify Email"
+            android:textAllCaps="false"
+            android:textStyle="bold"
+            android:backgroundTint="@color/act_blue_600"
+            android:textColor="@color/white"
+            android:layout_below="@id/terms_links_row"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="24dp" />
 
-</RelativeLayout>
-
+    </RelativeLayout>
+</ScrollView>

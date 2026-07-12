@@ -12,10 +12,21 @@
     <uses-permission 
         android:name="android.permission.ACCESS_FINE_LOCATION" 
         android:description="@string/permission_location_desc" />
-    <uses-permission 
-        android:name="android.permission.ACCESS_COARSE_LOCATION" 
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
         android:description="@string/permission_location_desc" />
 
+    <!-- Health Connect (replaces the deprecated Google Fit API): read-only, this app never
+         writes fitness data, only reads it to compute wellness tokens. -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+
+    <!-- Required so HealthConnectClient.getSdkStatus() can detect the Health Connect app
+         (Android 13 and below only; on Android 14+ Health Connect is part of the OS). -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -38,13 +49,26 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Handle email verification deep links -->
+            <!-- Handle email verification deep links (custom scheme) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- Replace with your actual app URL scheme or Supabase redirect URL -->
                 <data android:scheme="acteamity" android:host="auth" />
+            </intent-filter>
+            <!-- Handle email verification redirect (https, for links pointing to https://acteamity.com/authentication) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="acteamity.com" android:pathPrefix="/authentication" />
+            </intent-filter>
+            <!-- Handle password recovery deep link (public/password_recovery.html forwards here) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="acteamity" android:host="reset" />
             </intent-filter>
         </activity>
         <activity
@@ -59,8 +83,14 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!-- Handle Supabase auth callbacks -->
                 <data android:scheme="acteamity" android:host="auth" />
+            </intent-filter>
+            <!-- Handle https://acteamity.com/authentication redirect -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="acteamity.com" android:pathPrefix="/authentication" />
             </intent-filter>
         </activity>
         <activity
@@ -81,18 +111,12 @@
             android:theme="@style/Theme.LUGA"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden" />
-        <activity
-            android:name=".ProfileActivity"
-            android:label="Acteamity Profile"
-            android:theme="@style/Theme.LUGA"
-            android:screenOrientation="portrait"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".ProfileEditActivity"
             android:label="Acteamity Edit Profile"
             android:theme="@style/Theme.LUGA"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden" />
-        <activity android:name=".CentralActivity"
+        <activity android:name=".ui.MainTabActivity"
             android:label="Acteamity"
             android:theme="@style/Theme.LUGA"
             android:screenOrientation="portrait"
@@ -108,6 +132,47 @@
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden">
         </activity>
+        <activity
+            android:name=".ForgotPasswordActivity"
+            android:label="Reset Password"
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity
+            android:name=".PasswordResetActivity"
+            android:label="Reset Password"
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity
+            android:name=".PrivacyDisclosureActivity"
+            android:label="Privacy"
+            android:theme="@style/Theme.LUGA"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <!-- Health Connect requires an app-provided screen explaining fitness data usage,
+             shown from the Health Connect app's own permissions UI. Content mirrors
+             PrivacyDisclosureActivity / https://acteamity.com/privacy. -->
+        <activity
+            android:name=".PermissionsRationaleActivity"
+            android:label="Privacy"
+            android:theme="@style/Theme.LUGA"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".PermissionsRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
     </application>
 

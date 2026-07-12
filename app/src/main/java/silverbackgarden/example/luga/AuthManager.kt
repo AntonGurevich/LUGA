@@ -35,6 +35,12 @@ class AuthManager(private val context: Context) {
         private const val KEY_USER_EMAIL = "user_email"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_IS_LOGGED_IN = "is_logged_in"
+        private const val AUTH_REDIRECT_URL = "https://acteamity.com/authentication"
+        // Dedicated password-recovery redirect page (public/password_recovery.html), which
+        // forwards to the acteamity://reset deep link with the recovery tokens attached.
+        // Must stay distinct from AUTH_REDIRECT_URL: that page only handles signup/email
+        // verification (type=signup|email) and has no "enter new password" UI.
+        private const val PASSWORD_RESET_REDIRECT_URL = "https://acteamity.com/password_recovery"
     }
     
     private val supabase = SupabaseClient.client
@@ -79,7 +85,8 @@ class AuthManager(private val context: Context) {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Starting registration for email: $email")
-                val user = supabase.auth.signUpWith(Email) {
+                // Note: This URL must be allowlisted in Supabase Auth > URL Configuration.
+                val user = supabase.auth.signUpWith(Email, redirectUrl = AUTH_REDIRECT_URL) {
                     this.email = email
                     this.password = password
                 }
@@ -294,7 +301,8 @@ class AuthManager(private val context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 Log.d(TAG, "Starting registration for email: $email")
-                val user = supabase.auth.signUpWith(Email) {
+                // Note: This URL must be allowlisted in Supabase Auth > URL Configuration.
+                val user = supabase.auth.signUpWith(Email, redirectUrl = AUTH_REDIRECT_URL) {
                     this.email = email
                     this.password = password
                 }
@@ -571,7 +579,7 @@ class AuthManager(private val context: Context) {
                 // This deep link will open the app when user clicks the reset link in email
                 supabase.auth.resetPasswordForEmail(
                     email = email,
-                    redirectUrl = "acteamity://auth"
+                    redirectUrl = PASSWORD_RESET_REDIRECT_URL
                 )
                 
                 withContext(Dispatchers.Main) {
@@ -586,7 +594,30 @@ class AuthManager(private val context: Context) {
             }
         }
     }
-    
+
+    /**
+     * Establishes a session from the access/refresh tokens carried by the
+     * acteamity://reset recovery deep link, so [updatePassword] can then be
+     * called to actually change the password.
+     */
+    fun importRecoverySession(accessToken: String, refreshToken: String, callback: AuthCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                supabase.auth.importAuthToken(accessToken, refreshToken, retrieveUser = true)
+                val user = supabase.auth.currentUserOrNull()
+                withContext(Dispatchers.Main) {
+                    Log.d(TAG, "Recovery session imported for: ${user?.email}")
+                    callback.onSuccess(user)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to import recovery session: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    callback.onError("This reset link is invalid or has expired: ${e.message}")
+                }
+            }
+        }
+    }
+
     /**
      * Updates the current user's password.
      * Requires the user to be authenticated and provide their current password.
@@ -773,10 +804,8 @@ class AuthManager(private val context: Context) {
                 // Workaround: Call signUpWith again - Supabase will resend verification email
                 // for existing unverified users. We use a temporary password.
                 // Note: This is safe because we're not changing the user's actual password
-                supabase.auth.signUpWith(Email) {
+                supabase.auth.signUpWith(Email, redirectUrl = AUTH_REDIRECT_URL) {
                     this.email = email
-                    // Use a temporary password - this won't affect existing users
-                    // Supabase will detect existing user and resend verification email only
                     this.password = "temp_resend_${System.currentTimeMillis()}"
                 }
                 

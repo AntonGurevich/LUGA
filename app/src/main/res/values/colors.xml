@@ -13,4 +13,37 @@
     <color name="luga_blue">#FF40A6FB</color>
     <color name="destructive">#FFB00020</color>
 
+    <!-- Acteamity design system (ported from iOS DesignColors.swift) -->
+    <!-- Ink scale (grayscale/text), light mode -->
+    <color name="act_ink_900">#FF0D1726</color>
+    <color name="act_ink_800">#FF18293F</color>
+    <color name="act_ink_700">#FF2C405A</color>
+    <color name="act_ink_600">#FF475A74</color>
+    <color name="act_ink_500">#FF687A92</color>
+    <color name="act_ink_400">#FF8E9DB1</color>
+    <color name="act_ink_300">#FFB7C2D0</color>
+    <color name="act_ink_200">#FFDCE3EC</color>
+    <color name="act_ink_100">#FFEDF1F6</color>
+    <color name="act_ink_50">#FFF5F8FB</color>
+
+    <!-- Semantic surfaces -->
+    <color name="act_surface">#FFFFFFFF</color>
+    <color name="act_blue_50">#FFEBF5FF</color>
+    <color name="act_blue_500">#FF42A5FF</color>
+    <color name="act_blue_600">#FF2D8BEC</color>
+    <color name="act_blue_700">#FF2270C4</color>
+
+    <!-- Activity colors -->
+    <color name="act_mint_500">#FF3FC9BA</color>
+    <color name="act_mint_600">#FF178D82</color>
+    <color name="act_mint_50">#FFE7FBF8</color>
+    <color name="act_sky">#FF3CB9EF</color>
+    <color name="act_bar_swim">#FF0E8DAB</color>
+
+    <!-- Status -->
+    <color name="act_success">#FF1DB6A0</color>
+    <color name="act_success_bg">#FFE7FBF8</color>
+    <color name="act_error">#FFF2545B</color>
+    <color name="act_warning">#FFF5A623</color>
+
 </resources>

@@ -14,3 +14,11 @@ sdk.dir=C\:\\Users\\user\\AppData\\Local\\Android\\Sdk
 SUPABASE_URL=your_supabase_url_here
 SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
+# Release signing (required for building uploadable release bundle / AAB)
+# Run create-upload-keystore.bat in the project root to create upload-keystore.jks, then uncomment and fill:
+# Do NOT commit local.properties with real passwords to version control.
+# RELEASE_STORE_FILE=upload-keystore.jks
+# RELEASE_STORE_PASSWORD=your_store_password
+# RELEASE_KEY_ALIAS=upload
+# RELEASE_KEY_PASSWORD=your_key_password
+

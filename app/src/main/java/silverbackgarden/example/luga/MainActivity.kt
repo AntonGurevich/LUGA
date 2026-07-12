@@ -43,11 +43,22 @@ class MainActivity : AppCompatActivity() {
         // Handle deep link from email verification
         handleIntent(intent)
 
+        // Password recovery deep links skip the splash delay and go straight to
+        // the reset-password screen (the tokens in the URI are short-lived).
+        val data = intent?.data
+        if (data != null && data.scheme == "acteamity" && data.host == "reset") {
+            val resetIntent = Intent(this, PasswordResetActivity::class.java)
+            resetIntent.data = data
+            startActivity(resetIntent)
+            finish()
+            return
+        }
+
         // Add a delay to simulate a splash screen if desired
         // This creates a brief pause to show the main layout before moving to login
         lifecycleScope.launch {
             delay(2000) // Delay in milliseconds (2 seconds)
-            
+
             // Navigate to login, passing along any verification info
             val loginIntent = Intent(this@MainActivity, LoginActivity::class.java)
             intent.data?.let { uri ->
@@ -61,26 +72,20 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Handles incoming intents, particularly deep links from email verification.
+     * Supports acteamity://auth and https://acteamity.com/authentication.
      */
     private fun handleIntent(intent: Intent?) {
-        val data: Uri? = intent?.data
-        if (data != null) {
-            Log.d(TAG, "Deep link received: $data")
-            
-            // Check if this is an email verification callback
-            if (data.scheme == "acteamity" && data.host == "auth") {
-                Log.d(TAG, "Email verification callback detected")
-                
-                // Extract any verification tokens or parameters from the URL
-                val accessToken = data.getQueryParameter("access_token")
-                val type = data.getQueryParameter("type")
-                
-                if (type == "signup" || accessToken != null) {
-                    // User has verified their email
-                    Toast.makeText(this, "Email verification successful! Please log in.", Toast.LENGTH_LONG).show()
-                    Log.d(TAG, "Email verification successful")
-                }
-            }
+        val data = intent?.data ?: return
+        Log.d(TAG, "Deep link received: $data")
+        
+        val isAuthCallback = (data.scheme == "acteamity" && data.host == "auth") ||
+            (data.scheme == "https" && data.host == "acteamity.com" && (data.path?.startsWith("/authentication") == true))
+        
+        if (isAuthCallback) {
+            Log.d(TAG, "Email verification callback detected")
+            // Session parsing from URL requires coroutine; LoginActivity will detect verified user on sign-in.
+            // The page at acteamity.com/authentication can redirect to acteamity://auth with tokens for auto-login.
+            Toast.makeText(this, "Email verification link received. Please log in to continue.", Toast.LENGTH_LONG).show()
         }
     }
 

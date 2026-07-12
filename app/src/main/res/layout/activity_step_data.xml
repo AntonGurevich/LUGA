@@ -6,89 +6,23 @@
 
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:orientation="vertical"
     android:gravity="center_horizontal"
     >
 
-    <!-- Steps Progress Indicator -->
-
-    <!-- Bar Chart -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        >
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="150dp"
-            android:layout_height="150dp"
-            android:layout_marginLeft="20dp"
-            android:layout_gravity="left"
-            android:layout_marginBottom="15dp">
-
-            <com.mikhaellopez.circularprogressbar.CircularProgressBar
-                android:id="@+id/circularProgressBarSteps"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                app:cpb_background_progressbar_color="@color/teal_200"
-                app:cpb_background_progressbar_width="5dp"
-                app:cpb_progress="740"
-                app:cpb_progress_direction="to_right"
-                app:cpb_progress_max="1000"
-                app:cpb_progressbar_color="@color/teal_700"
-                app:cpb_progressbar_width="10dp"
-                app:cpb_round_border="false"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:orientation="vertical"
-                app:layout_constraintBottom_toBottomOf="@+id/circularProgressBarSteps"
-                app:layout_constraintEnd_toEndOf="@+id/circularProgressBarSteps"
-                app:layout_constraintStart_toStartOf="@+id/circularProgressBarSteps"
-                app:layout_constraintTop_toTopOf="@+id/circularProgressBarSteps">
-
-
-                <TextView
-                    android:id="@+id/tvSteps"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="Steps" />
-                <TextView
-                    android:id="@+id/tvStepsBal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="740/1000" />
-            </LinearLayout>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="15dp"
-            android:textSize="14dp"
-            android:text="Great News, your employer is supporting your steps activities"
-            />
-
-
-
-    </LinearLayout>
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
+        android:layout_marginTop="16dp"
         >
 
         <TextView
+            android:id="@+id/titleLast12Months"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Your steps in last 12 month"
+            android:text="Your steps in last 12 months"
             android:gravity="center"
             android:textStyle="bold"
             android:textSize="17dp"
@@ -105,23 +39,29 @@
             android:layout_marginBottom="20dp"
             android:padding="16dp" />
 
-        <TextView
+        <LinearLayout
+            android:id="@+id/sectionLast30Days"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Your steps in last 30 days"
-            android:gravity="center"
-            android:textStyle="bold"
-            android:textSize="17dp"
-            android:textColor="@color/luga_blue"
-        />
-
-        <com.github.mikephil.charting.charts.BarChart
-            android:id="@+id/barChartMonth"
-            android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:layout_marginLeft="20dp"
-            android:layout_marginRight="20dp"
-            android:layout_marginBottom="20dp"
-            android:padding="16dp" />
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/titleLast30Days"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Your steps in last 30 days"
+                android:gravity="center"
+                android:textStyle="bold"
+                android:textSize="17dp"
+                android:textColor="@color/luga_blue"
+                />
+            <com.github.mikephil.charting.charts.BarChart
+                android:id="@+id/barChartMonth"
+                android:layout_width="match_parent"
+                android:layout_height="200dp"
+                android:layout_marginLeft="20dp"
+                android:layout_marginRight="20dp"
+                android:layout_marginBottom="20dp"
+                android:padding="16dp" />
+        </LinearLayout>
     </LinearLayout>
 </LinearLayout>

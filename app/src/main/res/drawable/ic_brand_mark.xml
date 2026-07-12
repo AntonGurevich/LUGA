@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Outer ring (blue) -->
+    <path
+        android:pathData="M10,50 a40,40 0 1,0 80,0 a40,40 0 1,0 -80,0"
+        android:strokeColor="#FF42A5FF"
+        android:strokeWidth="13.5"
+        android:fillColor="#00000000" />
+    <!-- Inner ring (mint) -->
+    <path
+        android:pathData="M32,50 a18,18 0 1,0 36,0 a18,18 0 1,0 -36,0"
+        android:strokeColor="#FF3FC9BA"
+        android:strokeWidth="13.5"
+        android:fillColor="#00000000" />
+</vector>

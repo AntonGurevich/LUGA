@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="AuthTextInputView">
+        <attr name="authLabel" format="string" />
+        <attr name="authHint" format="string" />
+        <attr name="authInputType" format="enum">
+            <enum name="text" value="0" />
+            <enum name="email" value="1" />
+            <enum name="number" value="2" />
+        </attr>
+    </declare-styleable>
+
+    <declare-styleable name="AuthPasswordInputView">
+        <attr name="authLabel" />
+        <attr name="authHint" />
+    </declare-styleable>
+
+    <declare-styleable name="AuthPrimaryButton">
+        <attr name="authButtonText" format="string" />
+    </declare-styleable>
+</resources>

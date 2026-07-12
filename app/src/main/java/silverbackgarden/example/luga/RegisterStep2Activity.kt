@@ -148,10 +148,25 @@ class RegisterStep2Activity : AppCompatActivity() {
                     authUserId = userUid,
                     callback = object : SupabaseUserManager.DatabaseCallback<UserData> {
                         override fun onSuccess(result: UserData) {
+                            // Best-effort employer link (Phase 3): registration to users_registry
+                            // above already succeeded, so a failure here shouldn't block the user.
+                            supabaseUserManager.linkUserToCompany(
+                                uid = userUid,
+                                connectionCode = connectionCode,
+                                callback = object : SupabaseUserManager.DatabaseCallback<UserCorpLink> {
+                                    override fun onSuccess(result: UserCorpLink) {
+                                        Log.d("RegisterStep2", "user_corp_link established: $result")
+                                    }
+                                    override fun onError(error: String) {
+                                        Log.e("RegisterStep2", "user_corp_link failed (non-fatal): $error")
+                                    }
+                                }
+                            )
+
                             runOnUiThread {
                                 val companyName = companyInfo?.company_name ?: "Unknown Company"
                                 val isAuthenticated = authManager.isLoggedIn()
-                                
+
                                 if (isAuthenticated) {
                                     Toast.makeText(this@RegisterStep2Activity, "Registration completed successfully! Welcome to $companyName", Toast.LENGTH_LONG).show()
                                 } else {
@@ -160,7 +175,7 @@ class RegisterStep2Activity : AppCompatActivity() {
                                 }
                                 
                                 // Navigate to main app (user can verify email later)
-                                val intent = Intent(this@RegisterStep2Activity, CentralActivity::class.java)
+                                val intent = Intent(this@RegisterStep2Activity, silverbackgarden.example.luga.ui.MainTabActivity::class.java)
                                 startActivity(intent)
                                 finish()
                             }

@@ -1,7 +1,9 @@
 package silverbackgarden.example.luga
 
+import androidx.core.content.ContextCompat
 import android.os.Bundle
-import android.util.Log
+import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.github.mikephil.charting.charts.BarChart
@@ -9,183 +11,256 @@ import com.github.mikephil.charting.components.XAxis.XAxisPosition
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.fitness.Fitness
-import com.google.android.gms.fitness.FitnessOptions
-import com.google.android.gms.fitness.data.DataType
-import com.google.android.gms.fitness.data.Field
-import com.google.android.gms.fitness.request.DataReadRequest
-import com.mikhaellopez.circularprogressbar.CircularProgressBar
-import java.util.*
-import java.util.concurrent.TimeUnit
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 /**
- * Activity for displaying detailed step count data visualization.
- * 
- * This activity provides users with comprehensive views of their step data
- * including monthly and daily breakdowns. It uses bar charts to visualize
- * step patterns over time and integrates with Google Fit to retrieve
- * historical fitness data.
- * 
- * The activity displays:
- * - A circular progress bar showing current daily progress
- * - A yearly bar chart showing monthly step totals
- * - A monthly bar chart showing daily step counts
+ * Activity for displaying activity data: steps, cycle, swim, or tokens.
+ * Data is from Supabase (raw_steps, raw_bike, raw_swim, token_record2).
+ * - Steps/Cycle/Swim: last 12 months (rolling) + last 30 days (rolling).
+ * - Tokens: last 12 months only (from token_record2).
  */
 class StepDataViewActivity : AppCompatActivity() {
 
-    // UI Elements for data visualization
-    private lateinit var stepsProgBar: CircularProgressBar  // Daily step progress indicator
-    private lateinit var barChartY: BarChart               // Yearly step data chart
-    private lateinit var barChartM: BarChart               // Monthly step data chart
+    companion object {
+        const val EXTRA_DATA_TYPE = "data_type"
+        const val TYPE_STEPS = "steps"
+        const val TYPE_CYCLE = "cycle"
+        const val TYPE_SWIM = "swim"
+        const val TYPE_TOKENS = "tokens"
+    }
 
-    // Google Fit configuration for data access
-    private lateinit var fitnessOptions: FitnessOptions
+    private lateinit var barChartY: BarChart
+    private lateinit var barChartM: BarChart
+    private lateinit var titleLast12Months: TextView
+    private lateinit var sectionLast30Days: View
+    private lateinit var titleLast30Days: TextView
 
-    /**
-     * Called when the activity is first created.
-     * Initializes the UI elements, sets up Google Fit integration,
-     * and fetches step data if permissions are available.
-     * 
-     * @param savedInstanceState Bundle containing the activity's previously saved state
-     */
+    private val supabaseUserManager = SupabaseUserManager()
+    private var dataType: String = TYPE_STEPS
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_step_data)
 
-        // Initialize UI elements from the layout
-        stepsProgBar = findViewById(R.id.circularProgressBarSteps)
+        dataType = intent.getStringExtra(EXTRA_DATA_TYPE) ?: TYPE_STEPS
+        title = when (dataType) {
+            TYPE_CYCLE -> "Cycle Data View"
+            TYPE_SWIM -> "Swim Data View"
+            TYPE_TOKENS -> "Token Data View"
+            else -> "Step Data View"
+        }
+
         barChartY = findViewById(R.id.barChartYear)
         barChartM = findViewById(R.id.barChartMonth)
+        titleLast12Months = findViewById(R.id.titleLast12Months)
+        sectionLast30Days = findViewById(R.id.sectionLast30Days)
+        titleLast30Days = findViewById(R.id.titleLast30Days)
 
-        // Configure Google Fit options for step count data access
-        fitnessOptions = FitnessOptions.builder()
-            .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
-            .build()
-        
-        // Get the currently signed-in Google account
-        val account = GoogleSignIn.getAccountForExtension(this, fitnessOptions)
+        when (dataType) {
+            TYPE_TOKENS -> {
+                sectionLast30Days.visibility = View.GONE
+                titleLast12Months.text = "Your tokens in last 12 months"
+            }
+            TYPE_CYCLE -> {
+                titleLast12Months.text = "Your cycle (m) in last 12 months"
+                titleLast30Days.text = "Your cycle (m) in last 30 days"
+            }
+            TYPE_SWIM -> {
+                titleLast12Months.text = "Your swim (m) in last 12 months"
+                titleLast30Days.text = "Your swim (m) in last 30 days"
+            }
+            else -> {
+                titleLast12Months.text = "Your steps in last 12 months"
+                titleLast30Days.text = "Your steps in last 30 days"
+            }
+        }
 
-        // Check if user has Google Fit permissions before proceeding
-        if (GoogleSignIn.getLastSignedInAccount(this) != null && GoogleSignIn.hasPermissions(account, fitnessOptions)) {
-            fetchAndDisplayStepData()
-        } else {
-            Toast.makeText(this, "Google Fit permissions are required", Toast.LENGTH_SHORT).show()
+        val uid = supabaseUserManager.getCurrentUserUid()
+        if (uid == null) {
+            Toast.makeText(this, "Please sign in to view data", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        when (dataType) {
+            TYPE_TOKENS -> loadTokenData(uid)
+            else -> loadActivityData(uid)
         }
     }
 
-    /**
-     * Fetches step count data from Google Fit and displays it in charts.
-     * 
-     * This method retrieves step data for the current month and processes it
-     * to create both monthly and daily breakdowns. It then updates the UI
-     * with the processed data using bar charts.
-     */
-    private fun fetchAndDisplayStepData() {
-        // Calculate time range for data retrieval (current month)
-        val cal = Calendar.getInstance()
-        cal.set(Calendar.DAY_OF_MONTH, 1)      // Start from first day of month
-        cal.set(Calendar.HOUR_OF_DAY, 0)       // Start at beginning of day
-        cal.set(Calendar.MINUTE, 0)
-        cal.set(Calendar.SECOND, 0)
-        val startTime = cal.timeInMillis
-        val endTime = System.currentTimeMillis() // End at current time
+    private fun loadActivityData(uid: String) {
+        val now = LocalDate.now()
+        val start12 = now.minusMonths(11).withDayOfMonth(1)
+        val end12 = now
+        val start30 = now.minusDays(29)
+        val end30 = now
+        val start12Str = start12.toString()
+        val end12Str = end12.toString()
+        val start30Str = start30.toString()
+        val end30Str = end30.toString()
 
-        // Build the data read request for step count data
-        val readRequest = DataReadRequest.Builder()
-            .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-            .read(DataType.TYPE_STEP_COUNT_DELTA)
-            .build()
-
-        // Get the Google account for API calls
-        val account = GoogleSignIn.getAccountForExtension(this, fitnessOptions)
-
-        // Execute the read request and process the response
-        Fitness.getHistoryClient(this, account)
-            .readData(readRequest)
-            .addOnSuccessListener { response ->
-                val dataSet = response.getDataSet(DataType.TYPE_STEP_COUNT_DELTA)
-                
-                // Arrays to store aggregated step data
-                val stepsByMonth = IntArray(12)  // Monthly totals (Jan-Dec)
-                val stepsByDay = IntArray(30)    // Daily totals (1-30)
-
-                // Process each data point from Google Fit
-                for (dataPoint in dataSet.dataPoints) {
-                    val steps = dataPoint.getValue(Field.FIELD_STEPS).asInt()
-                    val timestamp = dataPoint.getStartTime(TimeUnit.MILLISECONDS)
-                    
-                    // Convert timestamp to calendar for date extraction
-                    val calendar = Calendar.getInstance().apply { timeInMillis = timestamp }
-                    val month = calendar.get(Calendar.MONTH)           // 0-11 (Jan-Dec)
-                    val day = calendar.get(Calendar.DAY_OF_MONTH) - 1 // 0-29 (1-30)
-
-                    // Aggregate steps by month (ensure valid month index)
-                    if (month in 0..11) {
-                        stepsByMonth[month] += steps
+        when (dataType) {
+            TYPE_STEPS -> {
+                supabaseUserManager.getStepDataRange(uid, start12Str, end12Str, object : SupabaseUserManager.DatabaseCallback<List<StepData>> {
+                    override fun onSuccess(result: List<StepData>) {
+                        val byMonth = aggregateStepsByLast12Months(result, start12)
+                        supabaseUserManager.getStepDataRange(uid, start30Str, end30Str, object : SupabaseUserManager.DatabaseCallback<List<StepData>> {
+                            override fun onSuccess(result30: List<StepData>) {
+                                val byDay = aggregateStepsByLast30Days(result30, start30)
+                                runOnUiThread {
+                                    updateBarChart(barChartY, byMonth.map { it.toFloat() }.toFloatArray(), "Steps")
+                                    updateBarChart(barChartM, byDay.map { it.toFloat() }.toFloatArray(), "Steps")
+                                }
+                            }
+                            override fun onError(error: String) {
+                                runOnUiThread { Toast.makeText(this@StepDataViewActivity, error, Toast.LENGTH_SHORT).show() }
+                            }
+                        })
                     }
-                    
-                    // Aggregate steps by day (ensure valid day index)
-                    if (day in 0..29) {
-                        stepsByDay[day] += steps
+                    override fun onError(error: String) {
+                        runOnUiThread { Toast.makeText(this@StepDataViewActivity, error, Toast.LENGTH_SHORT).show() }
                     }
+                })
+            }
+            TYPE_CYCLE -> {
+                supabaseUserManager.getBikeDataRange(uid, start12Str, end12Str, object : SupabaseUserManager.DatabaseCallback<List<BikeData>> {
+                    override fun onSuccess(result: List<BikeData>) {
+                        val byMonth = aggregateBikeByLast12Months(result, start12)
+                        supabaseUserManager.getBikeDataRange(uid, start30Str, end30Str, object : SupabaseUserManager.DatabaseCallback<List<BikeData>> {
+                            override fun onSuccess(result30: List<BikeData>) {
+                                val byDay = aggregateBikeByLast30Days(result30, start30)
+                                runOnUiThread {
+                                    updateBarChart(barChartY, byMonth.map { it.toFloat() }.toFloatArray(), "m")
+                                    updateBarChart(barChartM, byDay.map { it.toFloat() }.toFloatArray(), "m")
+                                }
+                            }
+                            override fun onError(error: String) {
+                                runOnUiThread { Toast.makeText(this@StepDataViewActivity, error, Toast.LENGTH_SHORT).show() }
+                            }
+                        })
+                    }
+                    override fun onError(error: String) {
+                        runOnUiThread { Toast.makeText(this@StepDataViewActivity, error, Toast.LENGTH_SHORT).show() }
+                    }
+                })
+            }
+            TYPE_SWIM -> {
+                supabaseUserManager.getSwimDataRange(uid, start12Str, end12Str, object : SupabaseUserManager.DatabaseCallback<List<SwimData>> {
+                    override fun onSuccess(result: List<SwimData>) {
+                        val byMonth = aggregateSwimByLast12Months(result, start12)
+                        supabaseUserManager.getSwimDataRange(uid, start30Str, end30Str, object : SupabaseUserManager.DatabaseCallback<List<SwimData>> {
+                            override fun onSuccess(result30: List<SwimData>) {
+                                val byDay = aggregateSwimByLast30Days(result30, start30)
+                                runOnUiThread {
+                                    updateBarChart(barChartY, byMonth.map { it.toFloat() }.toFloatArray(), "m")
+                                    updateBarChart(barChartM, byDay.map { it.toFloat() }.toFloatArray(), "m")
+                                }
+                            }
+                            override fun onError(error: String) {
+                                runOnUiThread { Toast.makeText(this@StepDataViewActivity, error, Toast.LENGTH_SHORT).show() }
+                            }
+                        })
+                    }
+                    override fun onError(error: String) {
+                        runOnUiThread { Toast.makeText(this@StepDataViewActivity, error, Toast.LENGTH_SHORT).show() }
+                    }
+                })
+            }
+            else -> { }
+        }
+    }
+
+    private fun loadTokenData(uid: String) {
+        supabaseUserManager.fetchTokenRecordsLast12Months(uid, object : SupabaseUserManager.DatabaseCallback<List<TokenRecord>> {
+            override fun onSuccess(result: List<TokenRecord>) {
+                val tokensPerMonth = result.map { (it.reimbursable_tokens + it.nonreimbursable_tokens).toFloat() }.toFloatArray()
+                runOnUiThread {
+                    updateBarChart(barChartY, tokensPerMonth, "Tokens")
                 }
-
-                // Update both charts with the processed data
-                updateBarChart(barChartY, stepsByMonth)
-                updateBarChart(barChartM, stepsByDay)
             }
-            .addOnFailureListener { e ->
-                // Handle errors gracefully with user feedback
-                Log.e("StepDataViewActivity", "Failed to read step count", e)
-                Toast.makeText(this, "Failed to read step count: ${e.message}", Toast.LENGTH_SHORT).show()
+            override fun onError(error: String) {
+                runOnUiThread { Toast.makeText(this@StepDataViewActivity, error, Toast.LENGTH_SHORT).show() }
             }
+        })
     }
 
-    /**
-     * Updates a bar chart with step count data.
-     * 
-     * This method configures the chart appearance and populates it with
-     * the provided step data. It sets up visual styling, animations,
-     * and data representation for optimal user experience.
-     * 
-     * @param barChart The bar chart to update
-     * @param stepsData Array of step counts to display in the chart
-     */
-    private fun updateBarChart(barChart: BarChart, stepsData: IntArray) {
-        // Convert step data to chart entries with proper indexing
-        val entries = stepsData.mapIndexed { index, steps -> 
-            BarEntry((index + 1).toFloat(), steps.toFloat()) 
+    private fun aggregateStepsByLast12Months(records: List<StepData>, startMonth: LocalDate): IntArray {
+        val out = IntArray(12)
+        for (r in records) {
+            val d = LocalDate.parse(r.date)
+            val months = ChronoUnit.MONTHS.between(startMonth, d).toInt()
+            if (months in 0..11) out[months] += r.steps
         }
-        
-        // Create dataset with custom styling
-        val dataSet = BarDataSet(entries, "Steps")
-        dataSet.color = resources.getColor(R.color.luga_blue)  // Use app theme color
-        dataSet.setDrawValues(false)  // Hide value labels for cleaner appearance
+        return out
+    }
 
-        // Configure chart data and appearance
-        val barData = BarData(dataSet)
-        barChart.data = barData
-        
-        // Disable chart description and legend for cleaner UI
+    private fun aggregateStepsByLast30Days(records: List<StepData>, startDay: LocalDate): IntArray {
+        val out = IntArray(30)
+        for (r in records) {
+            val d = LocalDate.parse(r.date)
+            val days = ChronoUnit.DAYS.between(startDay, d).toInt()
+            if (days in 0..29) out[days] += r.steps
+        }
+        return out
+    }
+
+    private fun aggregateBikeByLast12Months(records: List<BikeData>, startMonth: LocalDate): IntArray {
+        val out = IntArray(12)
+        for (r in records) {
+            val d = LocalDate.parse(r.date)
+            val months = ChronoUnit.MONTHS.between(startMonth, d).toInt()
+            if (months in 0..11) out[months] += r.m_per_day
+        }
+        return out
+    }
+
+    private fun aggregateBikeByLast30Days(records: List<BikeData>, startDay: LocalDate): IntArray {
+        val out = IntArray(30)
+        for (r in records) {
+            val d = LocalDate.parse(r.date)
+            val days = ChronoUnit.DAYS.between(startDay, d).toInt()
+            if (days in 0..29) out[days] += r.m_per_day
+        }
+        return out
+    }
+
+    private fun aggregateSwimByLast12Months(records: List<SwimData>, startMonth: LocalDate): IntArray {
+        val out = IntArray(12)
+        for (r in records) {
+            val d = LocalDate.parse(r.date)
+            val months = ChronoUnit.MONTHS.between(startMonth, d).toInt()
+            if (months in 0..11) out[months] += r.m_per_day
+        }
+        return out
+    }
+
+    private fun aggregateSwimByLast30Days(records: List<SwimData>, startDay: LocalDate): IntArray {
+        val out = IntArray(30)
+        for (r in records) {
+            val d = LocalDate.parse(r.date)
+            val days = ChronoUnit.DAYS.between(startDay, d).toInt()
+            if (days in 0..29) out[days] += r.m_per_day
+        }
+        return out
+    }
+
+    private fun updateBarChart(barChart: BarChart, values: FloatArray, label: String) {
+        val entries = values.mapIndexed { index, v -> BarEntry((index + 1).toFloat(), v) }
+        val dataSet = BarDataSet(entries, label)
+        dataSet.color = ContextCompat.getColor(this, R.color.luga_blue)
+        dataSet.setDrawValues(false)
+        barChart.data = BarData(dataSet)
         barChart.description.isEnabled = false
         barChart.legend.isEnabled = false
-        
-        // Configure X-axis (horizontal)
-        barChart.xAxis.setDrawGridLines(false)  // Remove vertical grid lines
-        barChart.xAxis.position = XAxisPosition.BOTTOM  // Position labels at bottom
-        
-        // Configure Y-axis (vertical) - both left and right
-        barChart.axisLeft.setDrawGridLines(false)   // Remove horizontal grid lines
-        barChart.axisRight.setDrawGridLines(false)  // Remove horizontal grid lines
-        barChart.axisLeft.setDrawLabels(false)      // Hide left axis labels
-        barChart.axisLeft.axisMinimum = 0f          // Start Y-axis at 0
-        barChart.axisRight.axisMinimum = 0f         // Start Y-axis at 0
-        
-        // Add smooth animation for better user experience
-        barChart.animateY(1000)  // 1-second animation duration
-        
-        // Refresh the chart to display changes
+        barChart.xAxis.setDrawGridLines(false)
+        barChart.xAxis.position = XAxisPosition.BOTTOM
+        barChart.axisLeft.setDrawGridLines(false)
+        barChart.axisRight.setDrawGridLines(false)
+        barChart.axisLeft.setDrawLabels(false)
+        barChart.axisLeft.axisMinimum = 0f
+        barChart.axisRight.axisMinimum = 0f
+        barChart.animateY(1000)
         barChart.invalidate()
     }
 }

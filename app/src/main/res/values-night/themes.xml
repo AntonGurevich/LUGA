@@ -2,15 +2,22 @@
     <!-- Base application theme. -->
     <style name="Theme.LUGA" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_200</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorPrimary">@color/act_blue_600</item>
+        <item name="colorPrimaryVariant">@color/act_blue_700</item>
         <item name="colorOnPrimary">@color/black</item>
         <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_200</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <item name="colorSecondary">@color/act_mint_500</item>
+        <item name="colorSecondaryVariant">@color/act_mint_600</item>
+        <item name="colorOnSecondary">@color/act_ink_900</item>
         <!-- Status bar color. -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
+        <!-- See values/themes.xml for why this is here. -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
+        <!-- Acteamity design system surfaces -->
+        <item name="colorSurface">@color/act_surface</item>
+        <item name="colorError">@color/act_error</item>
+        <item name="android:windowBackground">@color/act_ink_50</item>
+        <item name="android:textColorPrimary">@color/act_ink_900</item>
+        <item name="android:textColorSecondary">@color/act_ink_500</item>
     </style>
 </resources>

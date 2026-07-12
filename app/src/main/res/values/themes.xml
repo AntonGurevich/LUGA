@@ -2,15 +2,56 @@
     <!-- Base application theme. -->
     <style name="Theme.LUGA" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/luga_blue</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/white</item> -->
+        <item name="colorPrimary">@color/act_blue_600</item>
+        <item name="colorPrimaryVariant">@color/act_blue_700</item>
+        <item name="colorOnPrimary">@color/white</item>
         <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_700</item>
-        <item name="colorOnSecondary">@color/black</item>
+        <item name="colorSecondary">@color/act_mint_500</item>
+        <item name="colorSecondaryVariant">@color/act_mint_600</item>
+        <item name="colorOnSecondary">@color/act_ink_900</item>
         <!-- Status bar color. -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
+        <!-- Android 15 (API 35) enforces edge-to-edge by default for apps targeting SDK 35,
+             which stops the classic ActionBar from being auto-inset below the status bar.
+             The app isn't adapted to draw-behind-system-bars yet, so opt back out. -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
+        <!-- Acteamity design system surfaces -->
+        <item name="colorSurface">@color/act_surface</item>
+        <item name="colorError">@color/act_error</item>
+        <item name="android:windowBackground">@color/act_ink_50</item>
+        <item name="android:textColorPrimary">@color/act_ink_900</item>
+        <item name="android:textColorSecondary">@color/act_ink_500</item>
+    </style>
+
+    <!-- High-contrast variant of the base theme (Profile > Appearance toggle).
+         Scoped to theme-level attrs (colorPrimary/colorSurface/text colors on
+         default-styled components); it does not repaint the many screens that set
+         android:textColor="@color/act_ink_500" etc. explicitly in their layouts —
+         that would require converting those to theme attrs across every screen,
+         which is a larger follow-up pass. -->
+    <style name="Theme.LUGA.HighContrast">
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryVariant">@color/black</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSurface">@color/white</item>
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:textColorPrimary">@color/black</item>
+        <item name="android:textColorSecondary">@color/black</item>
+    </style>
+
+    <!-- Header text (serif, mirrors iOS Georgia headers) -->
+    <style name="TextAppearance.Acteamity.Header" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:fontFamily">serif</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/act_ink_900</item>
+    </style>
+
+    <!-- Small tracked-letter-spacing uppercase label (mirrors iOS monospaced section labels) -->
+    <style name="TextAppearance.Acteamity.Label" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.08</item>
+        <item name="android:textColor">@color/act_ink_600</item>
+        <item name="android:textSize">11sp</item>
     </style>
 </resources>

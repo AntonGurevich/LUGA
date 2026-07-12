@@ -11,22 +11,16 @@ import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.Scope
 import silverbackgarden.example.luga.R
 import android.util.Log
 import io.github.jan.supabase.gotrue.user.UserInfo
 
 /**
  * Login activity that handles user authentication for the Acteamity app.
- * 
- * This activity provides both traditional email/password authentication and
- * Google Sign-In integration. It manages user login state, validates credentials,
+ *
+ * This activity manages email/password login state, validates credentials,
  * and handles the transition to the main app functionality.
- * 
+ *
  * The activity also includes account deletion functionality and automatically
  * shows registration options for new users who haven't created accounts yet.
  */
@@ -39,9 +33,6 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var createAccountButton: Button  // Registration navigation button
     private lateinit var forgotPasswordText: TextView // Forgot password link
 
-    // Google Sign-In client for authentication
-    private lateinit var googleSignInClient: GoogleSignInClient
-    
     // Supabase Auth manager for authentication
     private lateinit var authManager: AuthManager
 
@@ -122,10 +113,7 @@ class LoginActivity : AppCompatActivity() {
                             if (registrationComplete) {
                                 // User authenticated successfully and registration is complete
                                 Toast.makeText(this@LoginActivity, "Login successful!", Toast.LENGTH_SHORT).show()
-                                
-                                // Set up Google Sign-In for fitness data
-                                setupGoogleSignIn()
-                                
+
                                 // Navigate to main app functionality
                                 navigateToMainApp()
                             }
@@ -224,114 +212,21 @@ class LoginActivity : AppCompatActivity() {
     }
 
     /**
-     * Sets up Google Sign-In client for fitness data access.
-     */
-    private fun setupGoogleSignIn() {
-        googleSignInClient = GoogleSignIn.getClient(this, GoogleSignInOptions.Builder(
-            GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestEmail()
-            .requestId()
-            .requestProfile()
-            .requestScopes(Scope("https://www.googleapis.com/auth/fitness.activity.read"))
-            .requestIdToken("465622083556-75gj6fqpims30lr2q1iqo5rd9dpkrc4f.apps.googleusercontent.com") // Web client ID
-            .build())
-        
-        // Check if already signed in to Google, otherwise initiate sign-in
-        GoogleSignIn.getLastSignedInAccount(this)?.let { readStepCount(it) } ?: signIn()
-    }
-
-    /**
      * Navigates to the main app activity.
      */
     private fun navigateToMainApp() {
-        val intent = Intent(this, CentralActivity::class.java)
+        val intent = Intent(this, silverbackgarden.example.luga.ui.MainTabActivity::class.java)
         startActivity(intent)
         finish()
     }
 
     /**
-     * Placeholder method for reading step count from Google Fit API.
-     * Currently not implemented but intended for future fitness data integration.
-     * 
-     * @param account The Google Sign-In account to use for API calls
-     */
-    private fun readStepCount(account: GoogleSignInAccount) {
-        // Make the API call to read the step count
-        // TODO: Implement Google Fit API integration
-    }
-
-    /**
-     * Initiates the Google Sign-In process by starting the sign-in activity.
-     */
-    private fun signIn() {
-        startActivityForResult(googleSignInClient.signInIntent, RC_SIGN_IN)
-    }
-
-    /**
-     * Handles the result of Google Sign-In activity.
-     * Processes the authentication result and logs the outcome.
-     * 
-     * @param requestCode The request code passed to startActivityForResult()
-     * @param resultCode The result code returned by the child activity
-     * @param data Intent containing result data
-     */
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        
-        if (requestCode == RC_SIGN_IN) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(data)
-            try {
-                val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
-                Log.d(TAG, "Google Sign-In successful in LoginActivity: ${account.email}")
-                // Handle successful sign-in
-            } catch (e: com.google.android.gms.common.api.ApiException) {
-                Log.e(TAG, "Google Sign-In failed in LoginActivity: ${e.statusCode}")
-                // Handle failed sign-in
-            }
-        }
-    }
-
-    /**
-     * Shows a dialog for password reset functionality.
-     * Allows users to enter their email to receive a password reset link.
+     * Opens the dedicated Forgot Password screen (Phase 7 — replaces the old AlertDialog flow).
      */
     private fun showForgotPasswordDialog() {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("Reset Password")
-        builder.setMessage("Enter your email address to receive a password reset link.")
-
-        // Create input field for email
-        val input = EditText(this)
-        input.hint = "Enter your email"
-        input.inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-        builder.setView(input)
-
-        builder.setPositiveButton("Send Reset Link") { dialog, _ ->
-            val email = input.text.toString().trim()
-            if (email.isNotEmpty() && isEmailValid(email)) {
-                // Send password reset email using Supabase Auth
-                authManager.resetPassword(email, object : AuthManager.AuthCallback {
-                    override fun onSuccess(user: UserInfo?) {
-                        Toast.makeText(this@LoginActivity, "Password reset email sent to $email", Toast.LENGTH_LONG).show()
-                    }
-                    override fun onError(error: String) {
-                        Toast.makeText(this@LoginActivity, "Failed to send reset email: $error", Toast.LENGTH_LONG).show()
-                    }
-                })
-            } else {
-                Toast.makeText(this, "Please enter a valid email address", Toast.LENGTH_SHORT).show()
-            }
-            dialog.dismiss()
-        }
-
-        builder.setNegativeButton("Cancel") { dialog, _ ->
-            dialog.dismiss()
-        }
-
-        val dialog: AlertDialog = builder.create()
-        dialog.show()
+        startActivity(Intent(this, ForgotPasswordActivity::class.java))
     }
-    
+
     /**
      * Shows a dialog when user tries to login but email is not verified.
      * Provides option to resend verification email.
@@ -421,9 +316,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     companion object {
-        const val RC_SIGN_IN = 9001                                    // Request code for Google Sign-In
         private const val TAG = "LoginActivity"                         // Log tag for debugging
-        private const val REQUEST_ACTIVITY_RECOGNITION_PERMISSION = 1002 // Permission request code
     }
 }
 

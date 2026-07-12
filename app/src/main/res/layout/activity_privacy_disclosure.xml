@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="@color/act_ink_50">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:text="Your Privacy"
+            android:textAppearance="@style/TextAppearance.Acteamity.Header"
+            android:textSize="22sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="WHAT DATA WE ACCESS"
+            android:textAppearance="@style/TextAppearance.Acteamity.Label" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:lineSpacingExtra="4dp"
+            android:text="&#8226; Step count\n&#8226; Cycling distance\n&#8226; Swimming distance\n\nRead via Google Fit and/or your device's step sensors, for whichever activities you have permission enabled."
+            android:textColor="@color/act_ink_700"
+            android:textSize="14.5sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="HOW WE USE YOUR DATA"
+            android:textAppearance="@style/TextAppearance.Acteamity.Label" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:lineSpacingExtra="4dp"
+            android:text="&#8226; Displayed in your dashboard, stats, and token screens\n&#8226; Used to calculate your wellness tokens\n&#8226; Synced to Supabase so your employer's wellness program can administer reimbursements\n\nWe do not sell your data or share it with third parties beyond what's needed to run your employer's wellness program."
+            android:textColor="@color/act_ink_700"
+            android:textSize="14.5sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="DATA SECURITY"
+            android:textAppearance="@style/TextAppearance.Acteamity.Label" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:lineSpacingExtra="4dp"
+            android:text="All data is transmitted over HTTPS and stored behind authenticated, per-user access controls."
+            android:textColor="@color/act_ink_700"
+            android:textSize="14.5sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:text="YOUR CONTROL"
+            android:textAppearance="@style/TextAppearance.Acteamity.Label" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:lineSpacingExtra="4dp"
+            android:text="&#8226; Revoke fitness data access any time via your device's Health/Fit permissions\n&#8226; Delete your account and all associated data from Profile &gt; Delete my data\n&#8226; Signing out stops any further syncing"
+            android:textColor="@color/act_ink_700"
+            android:textSize="14.5sp" />
+
+    </LinearLayout>
+</ScrollView>

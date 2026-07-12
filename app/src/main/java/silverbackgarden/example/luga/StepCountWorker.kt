@@ -3,6 +3,17 @@ package silverbackgarden.example.luga
 import android.content.Context
 import android.icu.text.SimpleDateFormat
 import android.util.Log
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.aggregate.AggregateMetric
+import androidx.health.connect.client.records.Record
+import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
+import androidx.health.connect.client.request.ReadRecordsRequest
+import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.runBlocking
@@ -10,112 +21,168 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
-import com.google.android.gms.fitness.Fitness
-import com.google.android.gms.fitness.FitnessOptions
-import com.google.android.gms.fitness.data.DataType
-import com.google.android.gms.fitness.data.Field
-import com.google.android.gms.fitness.request.DataReadRequest
-import silverbackgarden.example.luga.SupabaseClient
+import silverbackgarden.example.luga.health.HealthConnectAvailability
+import silverbackgarden.example.luga.offline.OfflineSyncQueue
+import io.github.jan.supabase.gotrue.auth
+import java.time.Duration
+import java.time.Instant
 import java.util.*
 import java.util.concurrent.TimeUnit
+import kotlin.reflect.KClass
 
 /**
- * Background worker that periodically retrieves activity data from Google Fit
+ * Background worker that periodically retrieves activity data from Health Connect
  * and synchronizes it with Supabase database.
- * 
- * This worker runs every 6 hours (as configured in CentralActivity) to ensure
- * activity data (steps, cycling, swimming) for the last 30 days is consistently 
- * collected and synchronized with the Supabase backend. It handles Google Fit 
- * authentication, data retrieval, duplicate checking, and database insertion 
- * in the background without requiring user interaction.
+ *
+ * This worker runs every 2 hours (as configured in DashboardFragment) to ensure
+ * activity data (steps, cycling, swimming) for the last 30 days is consistently
+ * collected and synchronized with the Supabase backend. It handles Health Connect
+ * availability/permission checks, data retrieval, duplicate checking, and database
+ * insertion in the background without requiring user interaction.
  */
 class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
 
+    companion object {
+        private const val TAG = "StepCountWorker"
+
+        // Health Connect exercise types (androidx.health.connect.client.records.ExerciseSessionRecord).
+        // Google splits swimming and cycling into several sub-types rather than one generic type
+        // each, so all of a category's types must be matched to capture a user's real total distance.
+        private val CYCLING_EXERCISE_TYPES = setOf(
+            ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
+            ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY
+        )
+        private val SWIMMING_EXERCISE_TYPES = setOf(
+            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL,
+            ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER
+        )
+
+        private val REQUIRED_PERMISSIONS = setOf(
+            HealthPermission.getReadPermission(StepsRecord::class),
+            HealthPermission.getReadPermission(DistanceRecord::class),
+            HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+        )
+
+        // Fine slot width for per-origin bucket slicing in aggregateBestSource() — used to
+        // surgically exclude manual-entry windows within one origin.
+        private const val BUCKET_MINUTES = 15L
+
+        // Origins that re-export an already-merged composite of other sources rather than
+        // recording anything themselves. The Google Fit app syncs Fit's own multi-source
+        // merge (phone + anything synced into Fit, incl. the same watch data other origins
+        // already provide) into Health Connect, so its totals exceed every real device.
+        // These origins only compete when NO primary source has data for the range.
+        private val COMPOSITE_ORIGINS = setOf("com.google.android.apps.fitness")
+
+        // Coarse window width for cross-origin stitching: within each window the best
+        // single origin wins, so device alternation (watch-only workout in the morning,
+        // phone-only afternoon) is captured. Only origins whose records are finer than
+        // the window may compete inside windows — a source that writes big delayed
+        // blocks can't prove WHEN its steps happened, and letting Health Connect smear
+        // it across windows stacked phantom night steps on top of real-time sources
+        // (measured: 17.1k reported vs 9.4k on the watch). Chunky origins instead
+        // compete with their whole-range total against the stitched result.
+        private const val STITCH_WINDOW_MINUTES = 180L
+    }
+
+    /**
+     * True if [this] record was typed in by the user via manual entry (a fitness app's "Add
+     * activity" / "Add steps" screen) rather than recorded by a sensor, wearable, or automatic
+     * detection. Fails open (returns false) for RECORDING_METHOD_UNKNOWN, so third-party apps
+     * that haven't adopted this newer metadata field aren't wrongly stripped of real data.
+     */
+    private fun Metadata.isManualEntry(): Boolean {
+        return recordingMethod == Metadata.RECORDING_METHOD_MANUAL_ENTRY
+    }
+
     private val supabaseUserManager = SupabaseUserManager()
+    private val authStatePrefs = context.getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
 
     /**
      * Main work method that executes the activity data synchronization process.
      * This method runs on a background thread and handles all the core functionality
-     * including Google Fit data retrieval and Supabase synchronization for steps, cycling, 
+     * including Health Connect data retrieval and Supabase synchronization for steps, cycling,
      * and swimming data over the last 30 days.
-     * 
+     *
      * @return Result.success() if work completes successfully, Result.retry() if it should be retried
      */
     override fun doWork(): Result = runBlocking {
         try {
-            Log.i("StepCountWorker", "🚀 WORKER STARTED: Activity Data Sync (Steps, Bike, Swim) - Last 30 Days")
-            Log.d("StepCountWorker", "Worker ID: ${id}, Run attempt: ${runAttemptCount}")
-            
-            // Configure Google Fit options for activity data access
-            val fitnessOptions = FitnessOptions.builder()
-                .addDataType(DataType.TYPE_STEP_COUNT_DELTA, FitnessOptions.ACCESS_READ)
-                .addDataType(DataType.TYPE_DISTANCE_DELTA, FitnessOptions.ACCESS_READ)
-                .addDataType(DataType.TYPE_ACTIVITY_SEGMENT, FitnessOptions.ACCESS_READ)
-                .build()
-                
-            // Get the currently signed-in Google account
-            val account = GoogleSignIn.getAccountForExtension(applicationContext, fitnessOptions)
-            
-            // Check if user is actually signed in and has permissions
-            if (account == null) {
-                Log.w("StepCountWorker", "❌ No Google account signed in, skipping work")
+            Log.i(TAG, "🚀 WORKER STARTED: Activity Data Sync (Steps, Bike, Swim) - Last 30 Days")
+            Log.d(TAG, "Worker ID: $id, runAttempt: $runAttemptCount")
+
+            if (HealthConnectAvailability.check(applicationContext) != HealthConnectAvailability.Status.AVAILABLE) {
+                Log.w(TAG, "❌ Health Connect not available, skipping work")
                 return@runBlocking Result.success() // Don't retry, just succeed
             }
-            
-            // Verify that the user has granted the required Google Fit permissions
-            if (!GoogleSignIn.hasPermissions(account, fitnessOptions)) {
-                Log.w("StepCountWorker", "❌ User doesn't have Google Fit permissions, skipping work")
+
+            val healthConnectClient = HealthConnectClient.getOrCreate(applicationContext)
+            val grantedPermissions = healthConnectClient.permissionController.getGrantedPermissions()
+            if (!grantedPermissions.containsAll(REQUIRED_PERMISSIONS)) {
+                Log.w(TAG, "❌ User hasn't granted the required Health Connect permissions, skipping work")
                 return@runBlocking Result.success() // Don't retry, just succeed
             }
-            
-            Log.d("StepCountWorker", "✅ Google account and permissions verified")
-            
-            // Get current Supabase user ID via manager
-            val userUid = supabaseUserManager.getCurrentUserUid()
+
+            Log.d(TAG, "✅ Health Connect availability and permissions verified")
+
+            // Ensure auth state is loaded before checking current user in a background worker process.
+            val userUid = resolveAuthenticatedUserUid()
             if (userUid == null) {
-                Log.w("StepCountWorker", "❌ No Supabase user signed in, skipping work")
+                val hasLocalLoggedInState = authStatePrefs.getBoolean("is_logged_in", false)
+                if (hasLocalLoggedInState) {
+                    Log.w(TAG, "❌ Supabase session not yet available in worker, retrying")
+                    return@runBlocking Result.retry()
+                }
+                Log.w(TAG, "❌ No Supabase user signed in, skipping work")
                 return@runBlocking Result.success()
             }
-            
-            Log.i("StepCountWorker", "📊 Processing activity data for user: $userUid")
-            
+
+            Log.i(TAG, "📊 Processing activity data for user: $userUid")
+
+            // Drain any previously-queued days that failed to sync last time (offline queue)
+            // before attempting the normal 30-day sync below.
+            val drainedCount = OfflineSyncQueue.drainAndRetry(applicationContext, userUid, supabaseUserManager)
+            if (drainedCount > 0) {
+                Log.i(TAG, "♻️ Drained $drainedCount previously-queued day(s) from the offline sync queue")
+            }
+
             // Retrieve activity data for the last 30 days concurrently
             val stepDataReports = (1..30).map { dayOffset ->
-                async { getStepDataForDay(dayOffset, account) }
+                async { getStepDataForDay(dayOffset, healthConnectClient) }
             }.awaitAll().filterNotNull()
-            
+
             val bikeDataReports = (1..30).map { dayOffset ->
-                async { getBikeDataForDay(dayOffset, account) }
+                async { getBikeDataForDay(dayOffset, healthConnectClient) }
             }.awaitAll().filterNotNull()
-            
+
             val swimDataReports = (1..30).map { dayOffset ->
-                async { getSwimDataForDay(dayOffset, account) }
+                async { getSwimDataForDay(dayOffset, healthConnectClient) }
             }.awaitAll().filterNotNull()
-            
+
             // Sync collected activity data with Supabase
             var totalSynced = 0
-            
+
             if (stepDataReports.isNotEmpty()) {
                 Log.d("StepCountWorker", "Syncing ${stepDataReports.size} days of step data to Supabase (last 30 days)")
-                syncStepsToSupabase(userUid, stepDataReports)
-                totalSynced += stepDataReports.size
+                val (stepCount, failedSteps) = supabaseUserManager.syncStepDataSuspendDetailed(userUid, stepDataReports)
+                totalSynced += stepCount
+                OfflineSyncQueue.enqueueSteps(applicationContext, userUid, failedSteps)
             }
-            
+
             if (bikeDataReports.isNotEmpty()) {
                 Log.d("StepCountWorker", "Syncing ${bikeDataReports.size} days of bike data to Supabase (last 30 days)")
-                syncBikeToSupabase(userUid, bikeDataReports)
-                totalSynced += bikeDataReports.size
+                val (bikeCount, failedBike) = supabaseUserManager.syncBikeDataSuspendDetailed(userUid, bikeDataReports)
+                totalSynced += bikeCount
+                OfflineSyncQueue.enqueueBike(applicationContext, userUid, failedBike)
             }
-            
+
             if (swimDataReports.isNotEmpty()) {
                 Log.d("StepCountWorker", "Syncing ${swimDataReports.size} days of swim data to Supabase (last 30 days)")
-                syncSwimToSupabase(userUid, swimDataReports)
-                totalSynced += swimDataReports.size
+                val (swimCount, failedSwim) = supabaseUserManager.syncSwimDataSuspendDetailed(userUid, swimDataReports)
+                totalSynced += swimCount
+                OfflineSyncQueue.enqueueSwim(applicationContext, userUid, failedSwim)
             }
-            
+
             if (totalSynced > 0) {
                 // Update shared preferences with last sync time
                 val prefs = applicationContext.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
@@ -126,30 +193,30 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
                     .putString("supabase_last_sync_swim", swimDataReports.joinToString(",") { it.date })
                     .putBoolean("token_data_needs_refresh", true) // Flag to refresh token data after sync
                     .apply()
-                
+
                 Log.d("StepCountWorker", "30-day activity sync completed. Steps: ${stepDataReports.size}, Bike: ${bikeDataReports.size}, Swim: ${swimDataReports.size}")
-                Log.d("StepCountWorker", "Token data refresh flag set - CentralActivity will refresh token data on next resume")
+                Log.d("StepCountWorker", "Token data refresh flag set - DashboardFragment will refresh token data on next resume")
             } else {
                 Log.w("StepCountWorker", "No activity data available for 30-day Supabase sync")
             }
-            
-            Log.i("StepCountWorker", "✅ 30-Day Activity Data Sync Completed Successfully")
+
+            Log.i(TAG, "✅ 30-Day Activity Data Sync Completed Successfully")
             Result.success()
         } catch (e: Exception) {
-            Log.e("StepCountWorker", "❌ Worker failed with exception", e)
+            Log.e(TAG, "❌ Worker failed with exception", e)
             Result.retry()
         }
     }
-    
+
     /**
-     * Retrieves step count data for a specific day from Google Fit.
+     * Retrieves step count data for a specific day from Health Connect.
      * This method specifically targets individual days for Supabase synchronization.
-     * 
+     *
      * @param dayOffset Number of days ago (1 = yesterday, 2 = day before yesterday, etc.)
-     * @param account Google Sign-In account with Fitness permissions
+     * @param client Health Connect client with granted read permissions
      * @return StepDataReport object containing the day's step data, or null if retrieval fails
      */
-    private suspend fun getStepDataForDay(dayOffset: Int, account: GoogleSignInAccount): StepDataReport? {
+    private suspend fun getStepDataForDay(dayOffset: Int, client: HealthConnectClient): StepDataReport? {
         return withContext(Dispatchers.IO) {
             try {
                 // Calculate the start and end times for the specified day
@@ -166,34 +233,21 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
                 cal.set(Calendar.SECOND, 59)
                 cal.set(Calendar.MILLISECOND, 999)
                 val endTime = cal.timeInMillis
-                
+
                 val dateString = getDateString(-dayOffset)
                 Log.d("StepCountWorker", "Getting steps for $dateString (day $dayOffset): ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(startTime))} to ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(endTime))}")
-                
-                // Build the data read request for step count data
-                val readRequest = DataReadRequest.Builder()
-                    .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-                    .read(DataType.TYPE_STEP_COUNT_DELTA)
-                    .build()
-                
-                // Execute the read request and wait for the response
-                val response = Fitness.getHistoryClient(applicationContext, account)
-                    .readData(readRequest)
-                    .await()
-                
-                // Calculate total steps for the day by summing all data points
-                val dataSet = response.getDataSet(DataType.TYPE_STEP_COUNT_DELTA)
-                val totalSteps = if (dataSet.isEmpty) {
-                    Log.d("StepCountWorker", "No step data points found for day $dayOffset")
-                    0
-                } else {
-                    val steps = dataSet.dataPoints.sumOf { it.getValue(Field.FIELD_STEPS).asInt() }
-                    Log.d("StepCountWorker", "Found ${dataSet.dataPoints.size} data points for day $dayOffset, total: $steps steps")
-                    steps
-                }
-                
+
+                val totalSteps = aggregateBestSource(
+                    client = client,
+                    recordType = StepsRecord::class,
+                    metric = StepsRecord.COUNT_TOTAL,
+                    startMillis = startTime,
+                    endMillis = endTime,
+                    recordWindow = { it.startTime.toEpochMilli() to it.endTime.toEpochMilli() }
+                ) { it.toDouble() }.toInt()
+
                 Log.d("StepCountWorker", "Retrieved step data for $dateString: $totalSteps steps")
-                    
+
                 // Create and return a StepDataReport with the collected data
                 StepDataReport(dateString, totalSteps)
             } catch (e: Exception) {
@@ -204,14 +258,14 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
     }
 
     /**
-     * Retrieves bike distance data for a specific day from Google Fit.
-     * Uses activity segments to identify cycling periods and correlates with distance data.
-     * 
+     * Retrieves bike distance data for a specific day from Health Connect.
+     * Uses exercise sessions to identify cycling periods and correlates with distance data.
+     *
      * @param dayOffset Number of days ago (1 = yesterday, 2 = day before yesterday, etc.)
-     * @param account Google Sign-In account with Fitness permissions
+     * @param client Health Connect client with granted read permissions
      * @return BikeDataReport object containing the day's cycling distance data, or null if retrieval fails
      */
-    private suspend fun getBikeDataForDay(dayOffset: Int, account: GoogleSignInAccount): BikeDataReport? {
+    private suspend fun getBikeDataForDay(dayOffset: Int, client: HealthConnectClient): BikeDataReport? {
         return withContext(Dispatchers.IO) {
             try {
                 // Calculate the start and end times for the specified day
@@ -226,62 +280,50 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
                 cal.set(Calendar.MINUTE, 59)
                 cal.set(Calendar.SECOND, 59)
                 val endTime = cal.timeInMillis
-                
-                // First, get activity segments to find cycling periods
-                val activityRequest = DataReadRequest.Builder()
-                    .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-                    .read(DataType.TYPE_ACTIVITY_SEGMENT)
-                    .build()
-                
-                val activityResponse = Fitness.getHistoryClient(applicationContext, account)
-                    .readData(activityRequest)
-                    .await()
-                
-                // Find cycling activity segments (activity type 1 = cycling)
-                val cyclingSegments = activityResponse.getDataSet(DataType.TYPE_ACTIVITY_SEGMENT)
-                    .dataPoints
-                    .filter { dataPoint ->
-                        val activityField = dataPoint.getValue(Field.FIELD_ACTIVITY)
-                        activityField != null && activityField.asInt() == 1 // 1 = cycling
-                    }
-                
+
                 val dateString = getDateString(-dayOffset)
-                
-                if (cyclingSegments.isEmpty()) {
+
+                // First, get exercise sessions to find cycling periods
+                val sessionsResponse = client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = ExerciseSessionRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(Instant.ofEpochMilli(startTime), Instant.ofEpochMilli(endTime))
+                    )
+                )
+
+                // Find cycling exercise sessions (all sub-types — see CYCLING_EXERCISE_TYPES),
+                // excluding sessions the user typed in manually.
+                val cyclingSessions = sessionsResponse.records.filter { session ->
+                    session.exerciseType in CYCLING_EXERCISE_TYPES && !session.metadata.isManualEntry()
+                }
+
+                if (cyclingSessions.isEmpty()) {
                     Log.d("StepCountWorker", "No cycling activities found for $dateString - returning 0.0m")
                     return@withContext BikeDataReport(dateString, 0.0f)
                 }
-                
-                Log.d("StepCountWorker", "Found ${cyclingSegments.size} cycling segments for $dateString")
-                
-                // For each cycling segment, get distance data during that time period
+
+                Log.d("StepCountWorker", "Found ${cyclingSessions.size} cycling sessions for $dateString")
+
+                // Merge overlapping session time-windows first: if multiple sources log
+                // overlapping sessions of different cycling sub-types for the same ride
+                // (e.g. a watch logs "road biking" while a phone app logs generic "biking"
+                // for the same period), querying distance per-session would double-count
+                // that overlap. Querying merged, non-overlapping windows instead guarantees
+                // each moment in time is only counted once.
+                val mergedRanges = mergeOverlappingTimeRanges(cyclingSessions.map {
+                    it.startTime.toEpochMilli() to it.endTime.toEpochMilli()
+                })
                 var totalCyclingDistance = 0.0f
-                
-                for (segment in cyclingSegments) {
-                    val segmentStart = segment.getStartTime(TimeUnit.MILLISECONDS)
-                    val segmentEnd = segment.getEndTime(TimeUnit.MILLISECONDS)
-                    
-                    val distanceRequest = DataReadRequest.Builder()
-                        .setTimeRange(segmentStart, segmentEnd, TimeUnit.MILLISECONDS)
-                        .read(DataType.TYPE_DISTANCE_DELTA)
-                        .build()
-                    
-                    val distanceResponse = Fitness.getHistoryClient(applicationContext, account)
-                        .readData(distanceRequest)
-                        .await()
-                    
-                    val segmentDistance = distanceResponse.getDataSet(DataType.TYPE_DISTANCE_DELTA)
-                        .dataPoints
-                        .sumOf { it.getValue(Field.FIELD_DISTANCE).asFloat().toDouble() }
-                        .toFloat()
-                    
-                    totalCyclingDistance += segmentDistance
-                    Log.d("StepCountWorker", "Cycling segment: ${segmentDistance}m")
+
+                for ((rangeStart, rangeEnd) in mergedRanges) {
+                    val rangeDistance = getDedupedDistanceMeters(client, rangeStart, rangeEnd)
+                    totalCyclingDistance += rangeDistance
+                    Log.d("StepCountWorker", "Cycling range: ${rangeDistance}m")
                 }
-                
+
                 Log.d("StepCountWorker", "Retrieved bike data for $dateString: ${totalCyclingDistance}m")
                 BikeDataReport(dateString, totalCyclingDistance)
-                
+
             } catch (e: Exception) {
                 Log.e("StepCountWorker", "Failed to get bike data for day $dayOffset", e)
                 null
@@ -290,14 +332,14 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
     }
 
     /**
-     * Retrieves swimming distance data for a specific day from Google Fit.
-     * Uses activity segments to identify swimming periods and correlates with distance data.
-     * 
+     * Retrieves swimming distance data for a specific day from Health Connect.
+     * Uses exercise sessions to identify swimming periods and correlates with distance data.
+     *
      * @param dayOffset Number of days ago (1 = yesterday, 2 = day before yesterday, etc.)
-     * @param account Google Sign-In account with Fitness permissions
+     * @param client Health Connect client with granted read permissions
      * @return SwimDataReport object containing the day's swimming distance data, or null if retrieval fails
      */
-    private suspend fun getSwimDataForDay(dayOffset: Int, account: GoogleSignInAccount): SwimDataReport? {
+    private suspend fun getSwimDataForDay(dayOffset: Int, client: HealthConnectClient): SwimDataReport? {
         return withContext(Dispatchers.IO) {
             try {
                 // Calculate the start and end times for the specified day
@@ -312,62 +354,47 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
                 cal.set(Calendar.MINUTE, 59)
                 cal.set(Calendar.SECOND, 59)
                 val endTime = cal.timeInMillis
-                
-                // First, get activity segments to find swimming periods
-                val activityRequest = DataReadRequest.Builder()
-                    .setTimeRange(startTime, endTime, TimeUnit.MILLISECONDS)
-                    .read(DataType.TYPE_ACTIVITY_SEGMENT)
-                    .build()
-                
-                val activityResponse = Fitness.getHistoryClient(applicationContext, account)
-                    .readData(activityRequest)
-                    .await()
-                
-                // Find swimming activity segments (activity type 9 = swimming)
-                val swimmingSegments = activityResponse.getDataSet(DataType.TYPE_ACTIVITY_SEGMENT)
-                    .dataPoints
-                    .filter { dataPoint ->
-                        val activityField = dataPoint.getValue(Field.FIELD_ACTIVITY)
-                        activityField != null && activityField.asInt() == 9 // 9 = swimming
-                    }
-                
+
                 val dateString = getDateString(-dayOffset)
-                
-                if (swimmingSegments.isEmpty()) {
+
+                // First, get exercise sessions to find swimming periods
+                val sessionsResponse = client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = ExerciseSessionRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(Instant.ofEpochMilli(startTime), Instant.ofEpochMilli(endTime))
+                    )
+                )
+
+                // Find swimming exercise sessions (pool/open-water — see SWIMMING_EXERCISE_TYPES),
+                // excluding sessions the user typed in manually.
+                val swimmingSessions = sessionsResponse.records.filter { session ->
+                    session.exerciseType in SWIMMING_EXERCISE_TYPES && !session.metadata.isManualEntry()
+                }
+
+                if (swimmingSessions.isEmpty()) {
                     Log.d("StepCountWorker", "No swimming activities found for $dateString - returning 0.0m")
                     return@withContext SwimDataReport(dateString, 0.0f)
                 }
-                
-                Log.d("StepCountWorker", "Found ${swimmingSegments.size} swimming segments for $dateString")
-                
-                // For each swimming segment, get distance data during that time period
+
+                Log.d("StepCountWorker", "Found ${swimmingSessions.size} swimming sessions for $dateString")
+
+                // Merge overlapping session time-windows first (see the matching comment in
+                // getBikeDataForDay) so a swim double-logged as both pool + open-water
+                // by different sources isn't double-counted.
+                val mergedRanges = mergeOverlappingTimeRanges(swimmingSessions.map {
+                    it.startTime.toEpochMilli() to it.endTime.toEpochMilli()
+                })
                 var totalSwimmingDistance = 0.0f
-                
-                for (segment in swimmingSegments) {
-                    val segmentStart = segment.getStartTime(TimeUnit.MILLISECONDS)
-                    val segmentEnd = segment.getEndTime(TimeUnit.MILLISECONDS)
-                    
-                    val distanceRequest = DataReadRequest.Builder()
-                        .setTimeRange(segmentStart, segmentEnd, TimeUnit.MILLISECONDS)
-                        .read(DataType.TYPE_DISTANCE_DELTA)
-                        .build()
-                    
-                    val distanceResponse = Fitness.getHistoryClient(applicationContext, account)
-                        .readData(distanceRequest)
-                        .await()
-                    
-                    val segmentDistance = distanceResponse.getDataSet(DataType.TYPE_DISTANCE_DELTA)
-                        .dataPoints
-                        .sumOf { it.getValue(Field.FIELD_DISTANCE).asFloat().toDouble() }
-                        .toFloat()
-                    
-                    totalSwimmingDistance += segmentDistance
-                    Log.d("StepCountWorker", "Swimming segment: ${segmentDistance}m")
+
+                for ((rangeStart, rangeEnd) in mergedRanges) {
+                    val rangeDistance = getDedupedDistanceMeters(client, rangeStart, rangeEnd)
+                    totalSwimmingDistance += rangeDistance
+                    Log.d("StepCountWorker", "Swimming range: ${rangeDistance}m")
                 }
-                
+
                 Log.d("StepCountWorker", "Retrieved swim data for $dateString: ${totalSwimmingDistance}m")
                 SwimDataReport(dateString, totalSwimmingDistance)
-                
+
             } catch (e: Exception) {
                 Log.e("StepCountWorker", "Failed to get swim data for day $dayOffset", e)
                 null
@@ -376,103 +403,155 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
     }
 
     /**
-     * Synchronizes step data to Supabase using the SupabaseUserManager.
-     * This method handles the duplicate checking and insertion logic.
-     * 
-     * @param userUid User's UID from Supabase Auth
-     * @param stepDataReports List of StepDataReport objects to sync
+     * Multi-source dedup: computes a total for [metric] over [startMillis, endMillis]
+     * without double-counting the same physical activity written to Health Connect by
+     * multiple apps (watch + phone + sync apps like Samsung Health / Health Sync).
+     *
+     * How it works:
+     * 1. One raw read discovers which apps (data origins) wrote records in the range,
+     *    and where any manually-typed entries lie in time.
+     * 2. Per origin, Health Connect's aggregateGroupByDuration() slices that origin's
+     *    records into aligned [BUCKET_MINUTES]-wide buckets (the platform handles
+     *    splitting records across bucket boundaries).
+     * 3. Buckets overlapping one of that origin's manual-entry windows are dropped —
+     *    typed-in data never reaches the total, and costs at most its own buckets.
+     * 4. Fine-grained origins (all records shorter than [STITCH_WINDOW_MINUTES]) are
+     *    rolled up into stitching windows; the best single origin wins each window and
+     *    windows are summed — capturing device alternation (watch-only workout in the
+     *    morning, phone-only afternoon). Chunky origins (any record longer than the
+     *    window) can't prove when their steps happened, so they compete only with
+     *    their whole-range total. Composite re-aggregator origins ([COMPOSITE_ORIGINS])
+     *    compete only when no primary source has data at all. The result is
+     *    max(stitched fine total, best chunky total) — sources are alternative
+     *    measurements of the same person, never additive parts.
      */
-    private suspend fun syncStepsToSupabase(userUid: String, stepDataReports: List<StepDataReport>) {
-        return withContext(Dispatchers.Main) {
-            try {
-                Log.d("StepCountWorker", "Starting Supabase step sync for ${stepDataReports.size} days")
-                
-                supabaseUserManager.syncStepData(userUid, stepDataReports, object : SupabaseUserManager.DatabaseCallback<Int> {
-                    override fun onSuccess(result: Int) {
-                        Log.d("StepCountWorker", "Successfully synced $result new step records to Supabase")
-                        // Set flag to refresh token data after sync
-                        val prefs = applicationContext.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
-                        prefs.edit().putBoolean("token_data_needs_refresh", true).apply()
-                        Log.d("StepCountWorker", "Token data refresh flag set after step sync")
-                    }
-                    
-                    override fun onError(error: String) {
-                        Log.e("StepCountWorker", "Failed to sync step data to Supabase: $error")
-                    }
-                })
-                
-            } catch (e: Exception) {
-                Log.e("StepCountWorker", "Error during Supabase step sync: ${e.message}", e)
+    private suspend fun <R : Record, T : Any> aggregateBestSource(
+        client: HealthConnectClient,
+        recordType: KClass<R>,
+        metric: AggregateMetric<T>,
+        startMillis: Long,
+        endMillis: Long,
+        recordWindow: (R) -> Pair<Long, Long>,
+        toDouble: (T) -> Double
+    ): Double {
+        val timeRange = TimeRangeFilter.between(Instant.ofEpochMilli(startMillis), Instant.ofEpochMilli(endMillis))
+
+        val rawRecords = client.readRecords(ReadRecordsRequest(recordType, timeRangeFilter = timeRange)).records
+        if (rawRecords.isEmpty()) return 0.0
+
+        val manualWindowsByOrigin = rawRecords
+            .filter { it.metadata.isManualEntry() }
+            .groupBy({ it.metadata.dataOrigin }, { recordWindow(it) })
+        val origins = rawRecords.map { it.metadata.dataOrigin }.toSet()
+
+        val stitchWindowMillis = STITCH_WINDOW_MINUTES * 60_000L
+
+        // Composite (re-aggregator) origins only compete when no primary source exists.
+        val primaryOrigins = origins.filter { it.packageName !in COMPOSITE_ORIGINS }.toSet()
+        val consideredOrigins = primaryOrigins.ifEmpty { origins }
+
+        // An origin may only compete inside stitching windows if all its records are
+        // finer than the window; otherwise its steps can't be located in time and it
+        // competes with its whole-range total instead.
+        val chunkyOrigins = rawRecords
+            .groupBy { it.metadata.dataOrigin }
+            .filterValues { records ->
+                records.any {
+                    val (recStart, recEnd) = recordWindow(it)
+                    recEnd - recStart > stitchWindowMillis
+                }
             }
+            .keys
+
+        // stitchWindow start -> (fine origin -> origin's total within that window)
+        val windowOriginTotals = HashMap<Long, HashMap<String, Double>>()
+        var bestChunkyTotal = 0.0
+
+        for (origin in consideredOrigins) {
+            val buckets = client.aggregateGroupByDuration(
+                AggregateGroupByDurationRequest(
+                    metrics = setOf(metric),
+                    timeRangeFilter = timeRange,
+                    timeRangeSlicer = Duration.ofMinutes(BUCKET_MINUTES),
+                    dataOriginFilter = setOf(origin)
+                )
+            )
+            val manualWindows = manualWindowsByOrigin[origin].orEmpty()
+            if (manualWindows.isNotEmpty()) {
+                Log.w("StepCountWorker", "Origin ${origin.packageName} has ${manualWindows.size} manual ${recordType.simpleName} entr(ies); overlapping buckets excluded")
+            }
+            val isChunky = origin in chunkyOrigins
+            var originTotal = 0.0
+            for (bucket in buckets) {
+                val bucketStart = bucket.startTime.toEpochMilli()
+                val bucketEnd = bucket.endTime.toEpochMilli()
+                if (manualWindows.any { (mStart, mEnd) -> mStart < bucketEnd && mEnd > bucketStart }) continue
+                val value = bucket.result[metric] ?: continue
+                val v = toDouble(value)
+                originTotal += v
+                if (!isChunky) {
+                    val stitchWindowStart = startMillis + ((bucketStart - startMillis) / stitchWindowMillis) * stitchWindowMillis
+                    windowOriginTotals.getOrPut(stitchWindowStart) { HashMap() }
+                        .merge(origin.packageName, v, Double::plus)
+                }
+            }
+            Log.d("StepCountWorker", "Origin ${origin.packageName}: $originTotal ${recordType.simpleName}${if (isChunky) " (chunky)" else ""}")
+            if (isChunky && originTotal > bestChunkyTotal) bestChunkyTotal = originTotal
         }
+
+        // Fine origins stitch window by window; the stitched result competes against the
+        // best chunky origin's whole-range total.
+        val stitchedFineTotal = windowOriginTotals.values.sumOf { it.values.max() }
+        return maxOf(stitchedFineTotal, bestChunkyTotal)
     }
 
     /**
-     * Synchronizes bike data to Supabase using the SupabaseUserManager.
-     * 
-     * @param userUid User's UID from Supabase Auth
-     * @param bikeDataReports List of BikeDataReport objects to sync
+     * Deduped distance total (meters) for a time window, via [aggregateBestSource].
      */
-    private suspend fun syncBikeToSupabase(userUid: String, bikeDataReports: List<BikeDataReport>) {
-        return withContext(Dispatchers.Main) {
-            try {
-                Log.d("StepCountWorker", "Starting Supabase bike sync for ${bikeDataReports.size} days")
-                
-                supabaseUserManager.syncBikeData(userUid, bikeDataReports, object : SupabaseUserManager.DatabaseCallback<Int> {
-                    override fun onSuccess(result: Int) {
-                        Log.d("StepCountWorker", "Successfully synced $result new bike records to Supabase")
-                        // Set flag to refresh token data after sync
-                        val prefs = applicationContext.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
-                        prefs.edit().putBoolean("token_data_needs_refresh", true).apply()
-                        Log.d("StepCountWorker", "Token data refresh flag set after bike sync")
-                    }
-                    
-                    override fun onError(error: String) {
-                        Log.e("StepCountWorker", "Failed to sync bike data to Supabase: $error")
-                    }
-                })
-                
-            } catch (e: Exception) {
-                Log.e("StepCountWorker", "Error during Supabase bike sync: ${e.message}", e)
-            }
-        }
+    private suspend fun getDedupedDistanceMeters(client: HealthConnectClient, rangeStart: Long, rangeEnd: Long): Float {
+        return aggregateBestSource(
+            client = client,
+            recordType = DistanceRecord::class,
+            metric = DistanceRecord.DISTANCE_TOTAL,
+            startMillis = rangeStart,
+            endMillis = rangeEnd,
+            recordWindow = { it.startTime.toEpochMilli() to it.endTime.toEpochMilli() }
+        ) { it.inMeters }.toFloat()
     }
 
     /**
-     * Synchronizes swim data to Supabase using the SupabaseUserManager.
-     * 
-     * @param userUid User's UID from Supabase Auth
-     * @param swimDataReports List of SwimDataReport objects to sync
+     * Merges potentially-overlapping session time-windows into the minimal set of
+     * disjoint (start, end) ranges (both in epoch milliseconds). Used before querying
+     * DistanceRecord so that when multiple sessions (e.g. different cycling/swimming
+     * sub-types from different data sources) cover the same or overlapping time, that
+     * overlap is only queried — and summed — once instead of once per matching session.
      */
-    private suspend fun syncSwimToSupabase(userUid: String, swimDataReports: List<SwimDataReport>) {
-        return withContext(Dispatchers.Main) {
-            try {
-                Log.d("StepCountWorker", "Starting Supabase swim sync for ${swimDataReports.size} days")
-                
-                supabaseUserManager.syncSwimData(userUid, swimDataReports, object : SupabaseUserManager.DatabaseCallback<Int> {
-                    override fun onSuccess(result: Int) {
-                        Log.d("StepCountWorker", "Successfully synced $result new swim records to Supabase")
-                        // Set flag to refresh token data after sync
-                        val prefs = applicationContext.getSharedPreferences("MyPrefs", Context.MODE_PRIVATE)
-                        prefs.edit().putBoolean("token_data_needs_refresh", true).apply()
-                        Log.d("StepCountWorker", "Token data refresh flag set after swim sync")
-                    }
-                    
-                    override fun onError(error: String) {
-                        Log.e("StepCountWorker", "Failed to sync swim data to Supabase: $error")
-                    }
-                })
-                
-            } catch (e: Exception) {
-                Log.e("StepCountWorker", "Error during Supabase swim sync: ${e.message}", e)
+    private fun mergeOverlappingTimeRanges(segments: List<Pair<Long, Long>>): List<Pair<Long, Long>> {
+        if (segments.isEmpty()) return emptyList()
+
+        val sorted = segments.sortedBy { it.first }
+
+        val merged = mutableListOf<Pair<Long, Long>>()
+        var (currentStart, currentEnd) = sorted.first()
+
+        for ((start, end) in sorted.drop(1)) {
+            if (start <= currentEnd) {
+                // Overlaps (or is adjacent to) the current range — extend it.
+                currentEnd = maxOf(currentEnd, end)
+            } else {
+                merged.add(currentStart to currentEnd)
+                currentStart = start
+                currentEnd = end
             }
         }
+        merged.add(currentStart to currentEnd)
+        return merged
     }
 
     /**
      * Generates a date string in "yyyy-MM-dd" format for a specified number of days ago.
      * Used to create date identifiers for step data when storing in Supabase.
-     * 
+     *
      * @param daysAgo Number of days ago (negative value)
      * @return Date string in "yyyy-MM-dd" format
      */
@@ -482,4 +561,24 @@ class StepCountWorker(context: Context, workerParams: WorkerParameters) : Worker
         }
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calendar.time)
     }
+
+    /**
+     * Resolves the current authenticated user UID, forcing auth session reload when needed.
+     */
+    private suspend fun resolveAuthenticatedUserUid(): String? = withContext(Dispatchers.IO) {
+        val auth = SupabaseClient.client.auth
+
+        // Fast path when session is already in memory.
+        auth.currentUserOrNull()?.id?.toString()?.let { return@withContext it }
+
+        return@withContext try {
+            // Worker may run in a fresh process where in-memory auth state is not yet restored.
+            auth.loadFromStorage(true)
+            auth.currentUserOrNull()?.id?.toString()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to load auth session from storage", e)
+            null
+        }
+    }
+
 }

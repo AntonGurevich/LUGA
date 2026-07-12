@@ -32,6 +32,8 @@ class SupabaseUserManager {
         private const val BIKE_TABLE = "raw_bike"
         private const val SWIM_TABLE = "raw_swim"
         private const val COMPANY_USER_REGISTRY_TABLE = "dmp_company_user_registry"
+        private const val COMPANY_RULES_TABLE = "company_rules"
+        private const val USER_CORP_LINK_TABLE = "user_corp_link"
     }
     
     private val supabase = SupabaseClient.client
@@ -243,8 +245,25 @@ class SupabaseUserManager {
     }
     
     /**
+     * Gets a user's own users_registry row by their auth UID (for profile display:
+     * registration_date / connection_code).
+     */
+    fun fetchUserDataByUid(uid: String, callback: DatabaseCallback<UserData?>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val allUsers = supabase.from(USERS_TABLE).select().decodeList<UserData>()
+                val user = allUsers.find { it.uid == uid }
+                withContext(Dispatchers.Main) { callback.onSuccess(user) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching user by uid: ${e.message}")
+                withContext(Dispatchers.Main) { callback.onError("Failed to fetch user data: ${e.message}") }
+            }
+        }
+    }
+
+    /**
      * Gets all users from the users_registry table.
-     * 
+     *
      * @param callback Callback to handle the result
      */
     fun getAllUsers(callback: DatabaseCallback<List<UserData>>) {
@@ -645,7 +664,7 @@ class SupabaseUserManager {
                         if (success) {
                             insertedCount++
                         }
-                    } else if (existingRecord.steps < report.steps) {
+                    } else if (existingRecord.steps != report.steps) {
                         // Current DB value is less than new app value, update it
                         Log.d(TAG, "Updating step data for ${report.date}: ${existingRecord.steps} -> ${report.steps} steps")
                         
@@ -670,6 +689,47 @@ class SupabaseUserManager {
                 }
             }
         }
+    }
+    
+    /**
+     * Suspend version of syncStepData for use in workers. Blocks until sync completes.
+     * Use this instead of syncStepData when running in WorkManager to ensure sync finishes before worker returns.
+     */
+    suspend fun syncStepDataSuspend(userUid: String, stepReports: List<StepDataReport>): Int =
+        syncStepDataSuspendDetailed(userUid, stepReports).first
+
+    /**
+     * Same as [syncStepDataSuspend] but also returns the reports that failed due to an
+     * unexpected error (e.g. no network), so the caller can queue them for offline retry.
+     */
+    suspend fun syncStepDataSuspendDetailed(userUid: String, stepReports: List<StepDataReport>): Pair<Int, List<StepDataReport>> = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Syncing step data for user: $userUid, reports: ${stepReports.size}")
+        var insertedCount = 0
+        val failedReports = mutableListOf<StepDataReport>()
+        val existingRecords = try {
+            supabase.from(STEPS_TABLE).select().decodeList<StepData>().filter { it.uid == userUid }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not fetch existing records, proceeding with upsert: ${e.message}")
+            emptyList()
+        }
+        stepReports.forEach { report ->
+            val existingRecord = existingRecords.find { it.date == report.date }
+            try {
+                when {
+                    existingRecord == null -> {
+                        if (upsertStepData(userUid, report.date, report.steps)) insertedCount++
+                    }
+                    existingRecord.steps != report.steps -> {
+                        if (updateStepData(userUid, report.date, report.steps)) insertedCount++
+                    }
+                    else -> { /* up to date */ }
+                }
+            } catch (e: Exception) {
+                failedReports.add(report)
+            }
+        }
+        Log.d(TAG, "Step data sync completed. Inserted $insertedCount new records, ${failedReports.size} failed.")
+        insertedCount to failedReports
     }
     
     /**
@@ -701,7 +761,7 @@ class SupabaseUserManager {
             
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error updating step data for $date: ${e.message}")
-            false
+            throw e
         }
     }
 
@@ -742,9 +802,10 @@ class SupabaseUserManager {
                     false
                 }
                 else -> {
-                    // Unexpected error, log it but don't fail the entire sync
+                    // Unexpected error (e.g. no network) — rethrow so the caller can queue this
+                    // report for offline retry instead of silently losing it.
                     Log.e(TAG, "Unexpected error inserting step data for $date: ${e.message}")
-                    false
+                    throw e
                 }
             }
         }
@@ -784,6 +845,74 @@ class SupabaseUserManager {
             }
         }
     }
+
+    /**
+     * Gets bike data for a user within a date range from raw_bike.
+     */
+    fun getBikeDataRange(userUid: String, startDate: String, endDate: String, callback: DatabaseCallback<List<BikeData>>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val allRecords = supabase.from(BIKE_TABLE).select().decodeList<BikeData>()
+                val filtered = allRecords.filter { it.uid == userUid && it.date >= startDate && it.date <= endDate }
+                withContext(Dispatchers.Main) { callback.onSuccess(filtered) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting bike data range: ${e.message}")
+                withContext(Dispatchers.Main) { callback.onError("Failed to get bike data: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Gets swim data for a user within a date range from raw_swim.
+     */
+    fun getSwimDataRange(userUid: String, startDate: String, endDate: String, callback: DatabaseCallback<List<SwimData>>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val allRecords = supabase.from(SWIM_TABLE).select().decodeList<SwimData>()
+                val filtered = allRecords.filter { it.uid == userUid && it.date >= startDate && it.date <= endDate }
+                withContext(Dispatchers.Main) { callback.onSuccess(filtered) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting swim data range: ${e.message}")
+                withContext(Dispatchers.Main) { callback.onError("Failed to get swim data: ${e.message}") }
+            }
+        }
+    }
+
+    private val TOKEN_TABLE = "token_record2"
+
+    /**
+     * Fetches token records for the user for the last 12 months from token_record2 (for charts).
+     * Returns list ordered from oldest month to newest (12 entries, months with no data have 0).
+     */
+    fun fetchTokenRecordsLast12Months(userId: String, callback: DatabaseCallback<List<TokenRecord>>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val now = java.time.LocalDate.now()
+                val startMonth = now.minusMonths(11).withDayOfMonth(1)
+                val monthKeys = (0..11).map { startMonth.plusMonths(it.toLong()).toString().substring(0, 7) + "-01" }
+                val allRecords = supabase.from(TOKEN_TABLE).select().decodeList<TokenRecord>()
+                val userRecords = allRecords.filter { it.uid == userId }
+                val byMonthNormalized = userRecords.associateBy { it.month.take(7) }
+                val result = monthKeys.map { month ->
+                    byMonthNormalized[month.take(7)] ?: TokenRecord(
+                        uid = userId,
+                        corpuid = null,
+                        month = month,
+                        reimbursable_tokens = 0.0,
+                        nonreimbursable_tokens = 0.0,
+                        token_limit = 30.0,
+                        swim_to_token = 0.0,
+                        bike_to_token = 0.0,
+                        steps_to_token = 0.0
+                    )
+                }
+                withContext(Dispatchers.Main) { callback.onSuccess(result) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching token records: ${e.message}")
+                withContext(Dispatchers.Main) { callback.onError("Failed to fetch token data: ${e.message}") }
+            }
+        }
+    }
     
     /**
      * Gets the current Supabase user UID.
@@ -816,8 +945,8 @@ class SupabaseUserManager {
                 val currentMonth = java.time.LocalDate.now().withDayOfMonth(1).toString()
                 Log.d(TAG, "Current month: $currentMonth")
                 
-                // Fetch token data from public.token_record2
-                val allTokenRecords = supabase.from("token_record2")
+                // Fetch token data from token_record2
+                val allTokenRecords = supabase.from(TOKEN_TABLE)
                     .select()
                     .decodeList<TokenRecord>()
                 
@@ -997,7 +1126,138 @@ class SupabaseUserManager {
             }
         }
     }
-    
+
+    // ================================
+    // COMPANY RULES & EMPLOYER LINKING (mirrors iOS SupabaseManager.linkUserToCompany /
+    // getCompanyRules; ported to Android's real raw_steps/raw_bike/raw_swim schema)
+    // ================================
+
+    /**
+     * Fetches the wellness-token rules for a company by corpuid.
+     * Column shape is defensive (all nullable besides corpuid) since the exact
+     * schema of company_rules was not directly inspectable ahead of time.
+     */
+    fun fetchCompanyRules(corpuid: String, callback: DatabaseCallback<CompanyRulesRecord?>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                Log.d(TAG, "Fetching company rules for corpuid: $corpuid")
+                val rules = supabase.from(COMPANY_RULES_TABLE)
+                    .select()
+                    .decodeList<CompanyRulesRecord>()
+                    .filter { it.corpuid == corpuid }
+
+                val currentDate = java.time.LocalDate.now()
+                val active = rules.find { record ->
+                    val from = record.effective_from?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                    val to = record.effective_to?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() }
+                    when {
+                        from == null -> false
+                        to == null -> !currentDate.isBefore(from)
+                        else -> !currentDate.isBefore(from) && !currentDate.isAfter(to)
+                    }
+                } ?: rules.firstOrNull()
+
+                Log.d(TAG, "Company rules for $corpuid: $active")
+                withContext(Dispatchers.Main) { callback.onSuccess(active) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching company rules: ${e.message}", e)
+                withContext(Dispatchers.Main) { callback.onError("Failed to fetch company rules: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Fetches the current user's employer link, if any.
+     */
+    fun fetchUserCorpLink(uid: String, callback: DatabaseCallback<UserCorpLink?>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val links = supabase.from(USER_CORP_LINK_TABLE)
+                    .select()
+                    .decodeList<UserCorpLink>()
+                    .filter { it.uid == uid }
+                Log.d(TAG, "user_corp_link rows for $uid: ${links.size}")
+                withContext(Dispatchers.Main) { callback.onSuccess(links.firstOrNull()) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error fetching user_corp_link: ${e.message}", e)
+                withContext(Dispatchers.Main) { callback.onError("Failed to fetch employer link: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Links a user to their employer in user_corp_link, resolving corpuid from the
+     * connection code via dmp_company_user_registry (same lookup validateEmployerCode
+     * already performs). If a link already exists for this uid, that's treated as
+     * success rather than an error (idempotent, matches iOS behavior).
+     */
+    fun linkUserToCompany(uid: String, connectionCode: Long, callback: DatabaseCallback<UserCorpLink>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val companyRegistry = supabase.from(COMPANY_USER_REGISTRY_TABLE)
+                    .select()
+                    .decodeList<CompanyUserRegistry>()
+                    .find { it.connection_code == connectionCode }
+
+                if (companyRegistry == null) {
+                    withContext(Dispatchers.Main) { callback.onError("No company found for connection code $connectionCode") }
+                    return@launch
+                }
+
+                val existingLinks = supabase.from(USER_CORP_LINK_TABLE)
+                    .select()
+                    .decodeList<UserCorpLink>()
+                    .filter { it.uid == uid }
+
+                val existing = existingLinks.find { it.corpuid == companyRegistry.corpuid }
+                if (existing != null) {
+                    Log.d(TAG, "user_corp_link already exists for uid=$uid corpuid=${companyRegistry.corpuid}")
+                    withContext(Dispatchers.Main) { callback.onSuccess(existing) }
+                    return@launch
+                }
+
+                val newLink = CreateUserCorpLink(
+                    uid = uid,
+                    corpuid = companyRegistry.corpuid,
+                    effective_from = getCurrentDateString(),
+                    effective_to = null
+                )
+                supabase.from(USER_CORP_LINK_TABLE).insert(newLink)
+                Log.d(TAG, "Inserted user_corp_link: $newLink")
+
+                withContext(Dispatchers.Main) {
+                    callback.onSuccess(
+                        UserCorpLink(uid = uid, corpuid = companyRegistry.corpuid, effective_from = newLink.effective_from, effective_to = null)
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error linking user to company: ${e.message}", e)
+                withContext(Dispatchers.Main) { callback.onError("Failed to link employer: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Updates an already-registered user's connection_code in users_registry
+     * (used by the Profile "Change Employer" flow, distinct from registerUser
+     * which only handles first-time registration).
+     */
+    fun updateUserConnectionCode(uid: String, connectionCode: Long, callback: DatabaseCallback<Unit>) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                supabase.from(USERS_TABLE)
+                    .update(mapOf("connection_code" to connectionCode)) {
+                        filter { eq("uid", uid) }
+                    }
+                Log.d(TAG, "Updated connection_code for uid=$uid to $connectionCode")
+                withContext(Dispatchers.Main) { callback.onSuccess(Unit) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating connection_code: ${e.message}", e)
+                withContext(Dispatchers.Main) { callback.onError("Failed to update employer code: ${e.message}") }
+            }
+        }
+    }
+
     // ================================
     // BIKE DATA MANAGEMENT METHODS
     // ================================
@@ -1041,7 +1301,7 @@ class SupabaseUserManager {
                         if (success) {
                             insertedCount++
                         }
-                    } else if (existingRecord.m_per_day < newValue) {
+                    } else if (existingRecord.m_per_day != newValue) {
                         // Current DB value is less than new app value, update it
                         Log.d(TAG, "Updating bike data for ${report.date}: ${existingRecord.m_per_day}m -> ${newValue}m")
                         
@@ -1066,6 +1326,47 @@ class SupabaseUserManager {
                 }
             }
         }
+    }
+    
+    /**
+     * Suspend version of syncBikeData for use in workers. Blocks until sync completes.
+     */
+    suspend fun syncBikeDataSuspend(userUid: String, bikeReports: List<BikeDataReport>): Int =
+        syncBikeDataSuspendDetailed(userUid, bikeReports).first
+
+    /**
+     * Same as [syncBikeDataSuspend] but also returns the reports that failed due to an
+     * unexpected error (e.g. no network), so the caller can queue them for offline retry.
+     */
+    suspend fun syncBikeDataSuspendDetailed(userUid: String, bikeReports: List<BikeDataReport>): Pair<Int, List<BikeDataReport>> = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Syncing bike data for user: $userUid, reports: ${bikeReports.size}")
+        var insertedCount = 0
+        val failedReports = mutableListOf<BikeDataReport>()
+        val existingRecords = try {
+            supabase.from(BIKE_TABLE).select().decodeList<BikeData>().filter { it.uid == userUid }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not fetch existing bike records, proceeding with upsert: ${e.message}")
+            emptyList()
+        }
+        bikeReports.forEach { report ->
+            val existingRecord = existingRecords.find { it.date == report.date }
+            val newValue = report.meters.toInt()
+            try {
+                when {
+                    existingRecord == null -> {
+                        if (upsertBikeData(userUid, report.date, report.meters)) insertedCount++
+                    }
+                    existingRecord.m_per_day != newValue -> {
+                        if (updateBikeData(userUid, report.date, report.meters)) insertedCount++
+                    }
+                    else -> { /* up to date */ }
+                }
+            } catch (e: Exception) {
+                failedReports.add(report)
+            }
+        }
+        Log.d(TAG, "Bike data sync completed. Inserted $insertedCount new records, ${failedReports.size} failed.")
+        insertedCount to failedReports
     }
     
     /**
@@ -1102,7 +1403,7 @@ class SupabaseUserManager {
                 }
                 else -> {
                     Log.e(TAG, "Unexpected error inserting bike data for $date: ${e.message}")
-                    false
+                    throw e
                 }
             }
         }
@@ -1151,7 +1452,7 @@ class SupabaseUserManager {
                         if (success) {
                             insertedCount++
                         }
-                    } else if (existingRecord.m_per_day < newValue) {
+                    } else if (existingRecord.m_per_day != newValue) {
                         // Current DB value is less than new app value, update it
                         Log.d(TAG, "Updating swim data for ${report.date}: ${existingRecord.m_per_day}m -> ${newValue}m")
                         
@@ -1176,6 +1477,47 @@ class SupabaseUserManager {
                 }
             }
         }
+    }
+    
+    /**
+     * Suspend version of syncSwimData for use in workers. Blocks until sync completes.
+     */
+    suspend fun syncSwimDataSuspend(userUid: String, swimReports: List<SwimDataReport>): Int =
+        syncSwimDataSuspendDetailed(userUid, swimReports).first
+
+    /**
+     * Same as [syncSwimDataSuspend] but also returns the reports that failed due to an
+     * unexpected error (e.g. no network), so the caller can queue them for offline retry.
+     */
+    suspend fun syncSwimDataSuspendDetailed(userUid: String, swimReports: List<SwimDataReport>): Pair<Int, List<SwimDataReport>> = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Syncing swim data for user: $userUid, reports: ${swimReports.size}")
+        var insertedCount = 0
+        val failedReports = mutableListOf<SwimDataReport>()
+        val existingRecords = try {
+            supabase.from(SWIM_TABLE).select().decodeList<SwimData>().filter { it.uid == userUid }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not fetch existing swim records, proceeding with upsert: ${e.message}")
+            emptyList()
+        }
+        swimReports.forEach { report ->
+            val existingRecord = existingRecords.find { it.date == report.date }
+            val newValue = report.meters.toInt()
+            try {
+                when {
+                    existingRecord == null -> {
+                        if (upsertSwimData(userUid, report.date, report.meters)) insertedCount++
+                    }
+                    existingRecord.m_per_day != newValue -> {
+                        if (updateSwimData(userUid, report.date, report.meters)) insertedCount++
+                    }
+                    else -> { /* up to date */ }
+                }
+            } catch (e: Exception) {
+                failedReports.add(report)
+            }
+        }
+        Log.d(TAG, "Swim data sync completed. Inserted $insertedCount new records, ${failedReports.size} failed.")
+        insertedCount to failedReports
     }
     
     /**
@@ -1207,7 +1549,7 @@ class SupabaseUserManager {
             
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error updating bike data for $date: ${e.message}")
-            false
+            throw e
         }
     }
     
@@ -1240,7 +1582,7 @@ class SupabaseUserManager {
             
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected error updating swim data for $date: ${e.message}")
-            false
+            throw e
         }
     }
 
@@ -1278,7 +1620,7 @@ class SupabaseUserManager {
                 }
                 else -> {
                     Log.e(TAG, "Unexpected error inserting swim data for $date: ${e.message}")
-                    false
+                    throw e
                 }
             }
         }
@@ -1309,6 +1651,45 @@ data class CompanyUserRegistry(
         val errorMessage: String?,
         val companyInfo: CompanyUserRegistry?
     )
+
+/**
+ * Data class for a row in the user_corp_link table, linking a user to an employer.
+ */
+@Serializable
+data class UserCorpLink(
+    val uid: String,
+    val corpuid: String,
+    val effective_from: String? = null,
+    val effective_to: String? = null
+)
+
+/**
+ * Data class for inserting a new user_corp_link row.
+ */
+@Serializable
+data class CreateUserCorpLink(
+    val uid: String,
+    val corpuid: String,
+    val effective_from: String?,
+    val effective_to: String?
+)
+
+/**
+ * Data class for a row in the company_rules table (per-employer wellness token rules).
+ * Fields beyond corpuid are nullable/defensive since exact column shape was not
+ * directly inspectable (RLS blocks anon reads outside a real session) ahead of time.
+ */
+@Serializable
+data class CompanyRulesRecord(
+    val corpuid: String,
+    val effective_from: String? = null,
+    val effective_to: String? = null,
+    val token_limit: Long? = null,
+    // Stored as a comma-separated string (e.g. "steps,swimming,cycling"), not an array.
+    val activity_list: String? = null,
+    val conversion_rate: Double? = null,
+    val currency: String? = null
+)
 
 /**
  * Data class for step data from Supabase raw_steps table.

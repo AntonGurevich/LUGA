@@ -3,8 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:fillViewport="true"
-    android:background="@color/white">
+    android:background="@color/act_ink_50">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,65 +14,73 @@
         android:padding="24dp"
         android:gravity="center_horizontal">
 
-        <!-- App Logo and Title -->
+        <!-- App logo -->
         <ImageView
-            android:id="@+id/app_logo"
-            android:layout_width="160dp"
-            android:layout_height="160dp"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="8dp"
+            android:layout_width="140dp"
+            android:layout_height="140dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="4dp"
+            android:contentDescription="@string/app_name"
             app:srcCompat="@drawable/acteamity_logo1" />
 
-
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="28dp"
+            android:text="Track your wellness journey"
+            android:textColor="@color/act_ink_500"
+            android:textSize="14sp" />
 
         <!-- Login Form -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="20dp">
 
             <!-- Email Input -->
             <EditText
                 android:id="@+id/login_email_edittext"
                 android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_marginBottom="16dp"
-                android:background="@drawable/edittext_background"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:background="@drawable/bg_auth_input"
                 android:hint="Email"
                 android:inputType="textEmailAddress"
-                android:textSize="18sp"
-                android:textColor="#000000"
-                android:textColorHint="#666666"
-                android:padding="20dp"
-                android:minHeight="60dp"
+                android:textSize="15sp"
+                android:textColor="@color/act_ink_900"
+                android:textColorHint="@color/act_ink_400"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="14dp"
                 android:gravity="center_vertical" />
 
             <!-- Password Input -->
             <EditText
                 android:id="@+id/login_password_edittext"
                 android:layout_width="match_parent"
-                android:layout_height="60dp"
-                android:layout_marginBottom="24dp"
-                android:background="@drawable/edittext_background"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                android:background="@drawable/bg_auth_input"
                 android:hint="Password"
                 android:inputType="textPassword"
-                android:textSize="18sp"
-                android:textColor="#000000"
-                android:textColorHint="#666666"
-                android:padding="20dp"
-                android:minHeight="60dp"
+                android:textSize="15sp"
+                android:textColor="@color/act_ink_900"
+                android:textColorHint="@color/act_ink_400"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="14dp"
                 android:gravity="center_vertical" />
 
             <!-- Login Button -->
             <Button
                 android:id="@+id/login_button"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
+                android:layout_height="52dp"
                 android:text="Sign In"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:background="@drawable/button_outline_background"
+                android:textAllCaps="false"
+                android:backgroundTint="@color/act_blue_600"
                 android:textColor="@color/white"
                 android:layout_marginBottom="16dp" />
 
@@ -83,20 +92,20 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="20dp">
 
             <View
                 android:layout_width="0dp"
                 android:layout_height="1dp"
                 android:layout_weight="1"
-                android:background="@android:color/darker_gray" />
+                android:background="@color/act_ink_200" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="OR"
-                android:textSize="14sp"
-                android:textColor="@android:color/darker_gray"
+                android:textSize="12sp"
+                android:textColor="@color/act_ink_500"
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp" />
 
@@ -104,7 +113,7 @@
                 android:layout_width="0dp"
                 android:layout_height="1dp"
                 android:layout_weight="1"
-                android:background="@android:color/darker_gray" />
+                android:background="@color/act_ink_200" />
 
         </LinearLayout>
 
@@ -112,13 +121,14 @@
         <Button
             android:id="@+id/register_button"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="52dp"
             android:text="Create New Account"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:background="@drawable/button_outline_background"
+            android:textAllCaps="false"
+            android:backgroundTint="@color/act_mint_600"
             android:textColor="@color/white"
-            android:layout_marginBottom="24dp" />
+            android:layout_marginBottom="20dp" />
 
         <!-- Forgot Password Link -->
         <TextView
@@ -127,11 +137,12 @@
             android:layout_height="wrap_content"
             android:text="Forgot Password?"
             android:textSize="14sp"
-            android:textColor="@color/purple_700"
+            android:textColor="@color/act_blue_600"
             android:textStyle="bold"
             android:layout_marginBottom="24dp"
             android:clickable="true"
             android:focusable="true"
+            android:padding="8dp"
             android:background="?android:attr/selectableItemBackground" />
 
         <!-- Privacy and Terms links -->
@@ -147,7 +158,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/privacy_policy"
                 android:textSize="12sp"
-                android:textColor="#666666"
+                android:textColor="@color/act_ink_500"
                 android:clickable="true"
                 android:focusable="true"
                 android:padding="8dp"
@@ -157,14 +168,14 @@
                 android:layout_height="wrap_content"
                 android:text="  •  "
                 android:textSize="12sp"
-                android:textColor="#666666" />
+                android:textColor="@color/act_ink_500" />
             <TextView
                 android:id="@+id/login_terms_link"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/terms_and_conditions"
                 android:textSize="12sp"
-                android:textColor="#666666"
+                android:textColor="@color/act_ink_500"
                 android:clickable="true"
                 android:focusable="true"
                 android:padding="8dp"

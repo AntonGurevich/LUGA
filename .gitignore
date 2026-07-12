@@ -13,3 +13,14 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Release signing - do not commit
+*.jks
+*.keystore
+
+# JVM crash dumps
+hs_err_pid*.log
+replay_pid*.log
+
+# Claude Code local settings
+.claude/

@@ -161,3 +161,23 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# =============================================================================
+# R8: suppress missing classes (optional/transitive deps not used on Android)
+# =============================================================================
+-dontwarn com.google.protobuf.**
+-dontwarn com.mchange.v2.c3p0.**
+-dontwarn com.oracle.bmc.**
+-dontwarn java.lang.management.**
+-dontwarn java.sql.JDBCType
+-dontwarn java.sql.SQLType
+-dontwarn javax.management.**
+-dontwarn javax.security.auth.callback.**
+-dontwarn javax.security.auth.login.**
+-dontwarn javax.security.sasl.**
+-dontwarn javax.sql.XAConnection
+-dontwarn javax.sql.XADataSource
+-dontwarn javax.transaction.xa.**
+-dontwarn javax.xml.stream.**
+-dontwarn javax.xml.transform.stax.**
+-dontwarn org.slf4j.impl.**
