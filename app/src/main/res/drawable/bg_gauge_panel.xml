@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Translucent inner panel on the token card holding the monthly-cap gauge
+     (iOS: white 12% fill, 14pt radius) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="14dp" />
+    <solid android:color="#1FFFFFFF" />
+</shape>

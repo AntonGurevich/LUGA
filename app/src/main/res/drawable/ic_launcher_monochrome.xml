@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13+ themed-icon layer: the black mark's alpha is used as a mask
+     and tinted by the launcher, per the brand-book icon-only mark variants. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="56dp"
+        android:height="48dp"
+        android:gravity="center"
+        android:drawable="@drawable/logo_mark_black" />
+</layer-list>

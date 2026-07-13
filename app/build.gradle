@@ -13,8 +13,8 @@ android {
         applicationId "silverbackgarden.example.luga"
         minSdkVersion 28
         targetSdkVersion 35
-        versionCode 29
-        versionName "2.0.20"
+        versionCode 33
+        versionName "2.0.24"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         namespace 'silverbackgarden.example.luga'
     }

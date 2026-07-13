@@ -16,9 +16,6 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -46,7 +43,6 @@ import androidx.work.WorkManager
 
 // Local app imports
 import silverbackgarden.example.luga.AuthManager
-import silverbackgarden.example.luga.LoginActivity
 import silverbackgarden.example.luga.R
 import silverbackgarden.example.luga.StepCountWorker
 import silverbackgarden.example.luga.BikeData
@@ -58,7 +54,6 @@ import silverbackgarden.example.luga.TokenRecord
 import silverbackgarden.example.luga.health.HealthConnectAvailability
 import silverbackgarden.example.luga.ui.CompanyRulesCache
 import silverbackgarden.example.luga.ui.MainTabActivity
-import io.github.jan.supabase.gotrue.user.UserInfo
 
 // Third-party UI library for circular progress bars
 import com.mikhaellopez.circularprogressbar.CircularProgressBar
@@ -176,7 +171,6 @@ class DashboardFragment : Fragment(), SensorEventListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         Log.d(TAG, "=== onViewCreated called ===")
-        setHasOptionsMenu(true)
 
         // Load persisted step counter state from shared preferences
         val prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -241,45 +235,13 @@ class DashboardFragment : Fragment(), SensorEventListener {
         val name = prefs.getString("name", null)
         tvGreeting?.text = if (name.isNullOrBlank()) "Hello, there" else "Hello, $name"
         tvDate?.text = SimpleDateFormat("EEEE · MMM d", Locale.getDefault()).format(Date()).uppercase(Locale.getDefault())
-    }
-
-    /**
-     * Creates the options menu for the host ActionBar.
-     */
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        Log.d(TAG, "=== onCreateOptionsMenu called ===")
-        inflater.inflate(R.menu.central_activity_menu, menu)
-        super.onCreateOptionsMenu(menu, inflater)
-    }
-
-    /**
-     * Handles menu item selections.
-     */
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        Log.d(TAG, "=== onOptionsItemSelected called ===")
-        return when (item.itemId) {
-            R.id.action_profile -> {
-                Log.d(TAG, "Profile menu item selected")
-                (activity as? MainTabActivity)?.switchToProfileTab()
-                true
-            }
-            R.id.action_sensor_status -> {
-                Log.d(TAG, "Sensor status toggle selected")
-                toggleSensorStatusVisibility()
-                item.isChecked = !item.isChecked
-                true
-            }
-            R.id.action_logout -> {
-                Log.d(TAG, "Logout menu item selected")
-                performLogout()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
+        view?.findViewById<TextView>(R.id.tvWalletMonth)?.text =
+            SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date())
     }
 
     /**
      * Toggles the visibility of sensor status indicators.
+     * (Debug view — reachable via the header bell now that the ActionBar menu is gone.)
      */
     private fun toggleSensorStatusVisibility() {
         Log.d(TAG, "=== toggleSensorStatusVisibility called ===")
@@ -295,43 +257,6 @@ class DashboardFragment : Fragment(), SensorEventListener {
         } else {
             Log.e(TAG, "Permission indicators layout not found")
         }
-    }
-
-    /**
-     * Performs user logout by clearing session and returning to login screen.
-     */
-    private fun performLogout() {
-        Log.d(TAG, "=== performLogout called ===")
-
-        androidx.appcompat.app.AlertDialog.Builder(requireContext())
-            .setTitle("Logout")
-            .setMessage("Are you sure you want to logout?")
-            .setPositiveButton("Yes") { _, _ ->
-                Log.d(TAG, "User confirmed logout")
-
-                authManager.signOut(object : AuthManager.AuthCallback {
-                    override fun onSuccess(user: UserInfo?) {
-                        Log.d(TAG, "Logout successful, navigating to login screen")
-                        val intent = Intent(requireContext(), LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        requireActivity().finish()
-                    }
-
-                    override fun onError(error: String) {
-                        Log.e(TAG, "Logout error: $error")
-                        val intent = Intent(requireContext(), LoginActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        startActivity(intent)
-                        requireActivity().finish()
-                    }
-                })
-            }
-            .setNegativeButton("Cancel") { dialog, _ ->
-                Log.d(TAG, "Logout cancelled by user")
-                dialog.dismiss()
-            }
-            .show()
     }
 
     override fun onStart() {
@@ -443,6 +368,16 @@ class DashboardFragment : Fragment(), SensorEventListener {
             stepsProgBar?.setOnClickListener { (activity as? MainTabActivity)?.switchToStatsTab() }
             cyclingProgBar?.setOnClickListener { (activity as? MainTabActivity)?.switchToStatsTab() }
             swimmingProgBar?.setOnClickListener { (activity as? MainTabActivity)?.switchToStatsTab() }
+            requireView().findViewById<View>(R.id.btnViewStats)?.setOnClickListener {
+                (activity as? MainTabActivity)?.switchToStatsTab()
+            }
+            requireView().findViewById<View>(R.id.btnTokensEarnings)?.setOnClickListener {
+                (activity as? MainTabActivity)?.switchToTokensTab()
+            }
+            // Bell doubles as the sensor-status debug toggle (formerly an ActionBar menu item).
+            requireView().findViewById<View>(R.id.headerBell)?.setOnClickListener {
+                toggleSensorStatusVisibility()
+            }
 
             stepsProgBar?.setOnLongClickListener {
                 Log.d(TAG, "Step counter long pressed, showing monthly progress and forcing permission request")
@@ -964,6 +899,9 @@ class DashboardFragment : Fragment(), SensorEventListener {
         if ((track?.width ?: 0) > 0) applyWidth() else track?.post { applyWidth() }
 
         tokenGaugePercentText?.text = "${(frac * 100).toInt()}%"
+        view?.findViewById<TextView>(R.id.tvGaugeLabel)?.text =
+            if (reimbursableTokens >= safeLimit) "Monthly limit reached"
+            else "${reimbursableTokens.toInt()} of ${safeLimit.toInt()} tokens this month"
     }
 
     /**

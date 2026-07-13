@@ -23,7 +23,7 @@ class MainTabActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val appearancePrefs = getSharedPreferences(Acteamity.PREFS_APPEARANCE, Context.MODE_PRIVATE)
         if (appearancePrefs.getBoolean(Acteamity.KEY_PREFERS_HIGH_CONTRAST, false)) {
-            setTheme(R.style.Theme_LUGA_HighContrast)
+            setTheme(R.style.Theme_LUGA_HighContrast_NoActionBar)
         }
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main_tab)

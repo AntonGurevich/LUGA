@@ -1,12 +1,14 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
     <style name="Theme.LUGA" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/act_blue_600</item>
+        <!-- Primary brand color: brand-blue 500 per brand-spec.md §3
+             ("Primary — actions, links, key UI, focus"). -->
+        <item name="colorPrimary">@color/act_blue_500</item>
         <item name="colorPrimaryVariant">@color/act_blue_700</item>
         <item name="colorOnPrimary">@color/white</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/act_mint_500</item>
+        <!-- Secondary brand color: mint 300 per brand-spec.md §3
+             ("Secondary — highlights, accents, secondary buttons"). -->
+        <item name="colorSecondary">@color/act_mint_300</item>
         <item name="colorSecondaryVariant">@color/act_mint_600</item>
         <item name="colorOnSecondary">@color/act_ink_900</item>
         <!-- Status bar color. -->
@@ -18,7 +20,9 @@
         <!-- Acteamity design system surfaces -->
         <item name="colorSurface">@color/act_surface</item>
         <item name="colorError">@color/act_error</item>
-        <item name="android:windowBackground">@color/act_ink_50</item>
+        <!-- Brand "paper" is the default background per brand-spec.md §3;
+             cards read against it via their ink-200 border + shadow. -->
+        <item name="android:windowBackground">@color/act_paper</item>
         <item name="android:textColorPrimary">@color/act_ink_900</item>
         <item name="android:textColorSecondary">@color/act_ink_500</item>
     </style>
@@ -39,6 +43,23 @@
         <item name="android:textColorSecondary">@color/black</item>
     </style>
 
+    <!-- Tab UI (MainTabActivity): no ActionBar — each screen renders its own
+         in-content header, mirroring iOS (navigationBarHidden / large titles).
+         Status bar matches the paper background with dark icons. -->
+    <style name="Theme.LUGA.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:statusBarColor">@color/act_paper</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Theme.LUGA.HighContrast.NoActionBar" parent="Theme.LUGA.HighContrast">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:statusBarColor">@color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
     <!-- Header text (serif, mirrors iOS Georgia headers) -->
     <style name="TextAppearance.Acteamity.Header" parent="TextAppearance.MaterialComponents.Headline6">
         <item name="android:fontFamily">serif</item>
@@ -46,11 +67,13 @@
         <item name="android:textColor">@color/act_ink_900</item>
     </style>
 
-    <!-- Small tracked-letter-spacing uppercase label (mirrors iOS monospaced section labels) -->
+    <!-- Label / eyebrow per brand-spec.md §4: uppercase, 0.14em tracking.
+         (Spec family is Verdana — not on Android, monospace is the closest
+         system stand-in for the "data/specs" role.) -->
     <style name="TextAppearance.Acteamity.Label" parent="TextAppearance.MaterialComponents.Caption">
         <item name="android:fontFamily">monospace</item>
         <item name="android:textAllCaps">true</item>
-        <item name="android:letterSpacing">0.08</item>
+        <item name="android:letterSpacing">0.14</item>
         <item name="android:textColor">@color/act_ink_600</item>
         <item name="android:textSize">11sp</item>
     </style>

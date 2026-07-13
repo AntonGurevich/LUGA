@@ -5,8 +5,8 @@
         <item name="colorPrimary">@color/act_blue_600</item>
         <item name="colorPrimaryVariant">@color/act_blue_700</item>
         <item name="colorOnPrimary">@color/black</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/act_mint_500</item>
+        <!-- Secondary brand color (mint-300 = brand secondary; night value in colors). -->
+        <item name="colorSecondary">@color/act_mint_300</item>
         <item name="colorSecondaryVariant">@color/act_mint_600</item>
         <item name="colorOnSecondary">@color/act_ink_900</item>
         <!-- Status bar color. -->
@@ -16,8 +16,16 @@
         <!-- Acteamity design system surfaces -->
         <item name="colorSurface">@color/act_surface</item>
         <item name="colorError">@color/act_error</item>
-        <item name="android:windowBackground">@color/act_ink_50</item>
+        <item name="android:windowBackground">@color/act_paper</item>
         <item name="android:textColorPrimary">@color/act_ink_900</item>
         <item name="android:textColorSecondary">@color/act_ink_500</item>
+    </style>
+
+    <!-- Dark variant: light status-bar icons over the dark paper background. -->
+    <style name="Theme.LUGA.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:statusBarColor">@color/act_paper</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

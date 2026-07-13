@@ -15,12 +15,15 @@
 
     <!-- Semantic surfaces -->
     <color name="act_surface">#FF1B2D45</color>
+    <!-- Dark counterpart of brand "paper": ink-900 dark surface -->
+    <color name="act_paper">#FF0D1726</color>
     <color name="act_blue_50">#FF0A1E3C</color>
     <color name="act_blue_500">#FF5CB3FF</color>
     <color name="act_blue_600">#FF42A5FF</color>
     <color name="act_blue_700">#FF5CB3FF</color>
 
     <!-- Activity colors -->
+    <color name="act_mint_300">#FF6DDDD0</color>
     <color name="act_mint_500">#FF4DD0C2</color>
     <color name="act_mint_600">#FF21B0A1</color>
     <color name="act_mint_50">#FF081E1A</color>

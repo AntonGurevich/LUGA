@@ -8,11 +8,11 @@
         android:layout_width="match_parent"
         android:layout_height="52dp"
         android:layout_gravity="center"
-        android:backgroundTint="@color/act_blue_600"
+        android:backgroundTint="@color/act_blue_500"
         android:textAllCaps="false"
         android:textColor="@color/white"
         android:textSize="16sp"
-        app:cornerRadius="10dp"
+        app:cornerRadius="26dp"
         tools:text="Sign In" />
 
     <ProgressBar

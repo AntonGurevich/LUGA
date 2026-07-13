@@ -33,7 +33,7 @@
         android:name=".Acteamity"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@drawable/no_text_logo"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.LUGA"
@@ -118,7 +118,7 @@
             android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".ui.MainTabActivity"
             android:label="Acteamity"
-            android:theme="@style/Theme.LUGA"
+            android:theme="@style/Theme.LUGA.NoActionBar"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity android:name=".PreLoginActivity"

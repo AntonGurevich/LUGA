@@ -28,12 +28,16 @@
 
     <!-- Semantic surfaces -->
     <color name="act_surface">#FFFFFFFF</color>
+    <!-- Brand "paper" — default background per brand-spec.md §3 -->
+    <color name="act_paper">#FFFCFDFE</color>
     <color name="act_blue_50">#FFEBF5FF</color>
     <color name="act_blue_500">#FF42A5FF</color>
     <color name="act_blue_600">#FF2D8BEC</color>
     <color name="act_blue_700">#FF2270C4</color>
 
     <!-- Activity colors -->
+    <!-- mint-300 is the brand secondary per brand-spec.md §3 -->
+    <color name="act_mint_300">#FF6DDDD0</color>
     <color name="act_mint_500">#FF3FC9BA</color>
     <color name="act_mint_600">#FF178D82</color>
     <color name="act_mint_50">#FFE7FBF8</color>
@@ -41,7 +45,7 @@
     <color name="act_bar_swim">#FF0E8DAB</color>
 
     <!-- Status -->
-    <color name="act_success">#FF1DB6A0</color>
+    <color name="act_success">#FF1FB6A0</color>
     <color name="act_success_bg">#FFE7FBF8</color>
     <color name="act_error">#FFF2545B</color>
     <color name="act_warning">#FFF5A623</color>

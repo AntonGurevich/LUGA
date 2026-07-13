@@ -40,6 +40,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Splash version label always reflects the real build version.
+        findViewById<android.widget.TextView>(R.id.textView)?.text = "V${BuildConfig.VERSION_NAME}"
+
         // Handle deep link from email verification
         handleIntent(intent)
 

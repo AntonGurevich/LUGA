@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Token card background per brand-spec.md §6 ("Token card: blue gradient,
+     white, blue shadow"): brand-blue 500 into sky, the spec's gradient pair. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="315"
+        android:startColor="#42A5FF"
+        android:endColor="#3CB9EF"
+        android:type="linear" />
+    <corners android:radius="20dp" />
+</shape>
